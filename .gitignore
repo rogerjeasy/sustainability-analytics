@@ -2,3 +2,5 @@
 .idea/
 data/
 .ipynb_checkpoints/
+.DS_Store
+.claude/
