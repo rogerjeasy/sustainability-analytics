@@ -1,0 +1,32 @@
+# Jupyter Book 2 (mystmd) project config.
+# Build with `make report`; preview live with `make report-serve`.
+version: 1
+project:
+  title: Wildfires and Demographic Change in Portugal
+  short_title: PT Wildfires
+  authors:
+    - name: Adrian
+    - name: Anibal
+    - name: Roger
+    - name: Samri
+  bibliography:
+    - reports/references.bib
+  # Keep scratch work, archived exploration and the data tree out of the build.
+  exclude:
+    - archive/**
+    - notebooks/scratch/**
+    - data/**
+    - src/**
+    - tests/**
+  toc:
+    - file: notebooks/00_introduction.ipynb
+    - file: notebooks/01_data_cleaning.ipynb
+    - file: notebooks/02_eda.ipynb
+    - file: notebooks/03_statistical_analysis.ipynb
+    - file: notebooks/04_ml_fire_risk.ipynb
+    - file: notebooks/05_discussion.ipynb
+    - file: reports/references.md
+site:
+  template: book-theme
+  options:
+    logo_text: PT Wildfires

@@ -51,14 +51,14 @@ scripts/               data acquisition helper
 
 ## Chapters and owners
 
-| Notebook | Owner | Content |
-|---|---|---|
-| `00_introduction.ipynb` | Adrian | SDG framing, motivation, research questions |
-| `01_data_cleaning.ipynb` | Roger | EFFIS + ICNF + INE → the analysis panel |
-| `02_eda.ipynb` | Roger | Distributions, trends, maps, data-quality caveats |
-| `03_statistical_analysis.ipynb` | Anibal | Question A: aging, depopulation, fire incidence |
-| `04_ml_fire_risk.ipynb` | Samri | Logistic regression, Random Forest, XGBoost |
-| `05_discussion.ipynb` | Adrian | Findings, limitations, conclusion |
+| Notebook                          | Owner  | Content                                           |
+| --------------------------------- | ------ | ------------------------------------------------- |
+| `00_introduction.ipynb`         | Adrian | SDG framing, motivation, research questions       |
+| `01_data_cleaning.ipynb`        | Roger  | EFFIS + ICNF + INE → the analysis panel          |
+| `02_eda.ipynb`                  | Roger  | Distributions, trends, maps, data-quality caveats |
+| `03_statistical_analysis.ipynb` | Anibal | Question A: aging, depopulation, fire incidence   |
+| `04_ml_fire_risk.ipynb`         | Samri  | Logistic regression, Random Forest, XGBoost       |
+| `05_discussion.ipynb`           | Adrian | Findings, limitations, conclusion                 |
 
 ## Common commands
 

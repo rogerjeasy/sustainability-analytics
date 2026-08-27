@@ -13,7 +13,8 @@ notebooks/scratch/*
 !notebooks/scratch/.gitkeep
 
 # ---- Build outputs ------------------------------------------------------
-reports/_build/
+# mystmd (Jupyter Book 2) writes to _build/ at the repo root, not under reports/.
+_build/
 reports/figures/*
 !reports/figures/.gitkeep
 
