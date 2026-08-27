@@ -1,6 +1,34 @@
-.venv/
-.idea/
-data/
+# ---- Data ---------------------------------------------------------------
+# Raw/interim/processed data is large (>600 MB) and reproducible from scripts.
+# data/external/ IS tracked: small committed lookups (crosswalks, code tables).
+data/raw/
+data/interim/
+data/processed/
+# data/external/ and data/README.md are not listed above, so they stay tracked.
+
+# ---- Notebooks ----------------------------------------------------------
 .ipynb_checkpoints/
+# Trailing /* (not /) so git still descends and sees the .gitkeep below.
+notebooks/scratch/*
+!notebooks/scratch/.gitkeep
+
+# ---- Build outputs ------------------------------------------------------
+reports/_build/
+reports/figures/*
+!reports/figures/.gitkeep
+
+# ---- Python -------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# ---- Editors / OS -------------------------------------------------------
+.idea/
+.vscode/
 .DS_Store
 .claude/

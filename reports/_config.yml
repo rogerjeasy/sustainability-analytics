@@ -1,0 +1,26 @@
+title: "Wildfires and Demographic Change in Portugal"
+author: "Adrian, Anibal, Roger, Samri"
+copyright: "2026"
+only_build_toc_files: true
+
+execute:
+  # "cache" re-runs a notebook only when its source changes. Switch to "off"
+  # while drafting if the data files are not on your machine.
+  execute_notebooks: cache
+  timeout: 600
+  allow_errors: false
+
+bibtex_bibfiles:
+  - references.bib
+
+sphinx:
+  config:
+    bibtex_reference_style: author_year
+    html_show_copyright: false
+
+html:
+  use_repository_button: true
+
+repository:
+  url: https://github.com/rogerjeasy/sustainability-analytics
+  branch: main
