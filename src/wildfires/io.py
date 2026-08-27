@@ -112,8 +112,7 @@ def load_ine_population(year: int) -> pd.DataFrame:
     """INE Anuário Estatístico Regional population indicators, município level.
 
     Sheet ``II_01_01`` carries a two-row header (indicator name on one row, unit
-    on the next) and four territorial columns (NUTS I/II/III, Município), so the
-    header rows are skipped and the columns named explicitly.
+    on the next), with an extra title row in some years.
 
     Returns population density and the effective/natural/migratory growth rates —
     the demographic predictors for chapters 03 and 04.
@@ -121,10 +120,22 @@ def load_ine_population(year: int) -> pd.DataFrame:
     path = PATHS["raw"]["ine_aer_dir"] / f"AER{year}_II_01.xlsx"
     raw = pd.read_excel(require(path), sheet_name="II_01_01", header=None)
 
-    # Row 3 holds indicator names, row 4 units, data starts at row 5.
-    names = raw.iloc[3].tolist()
-    df = raw.iloc[5:].copy()
-    df.columns = [str(n).strip() if pd.notna(n) else f"col_{i}" for i, n in enumerate(names)]
+    header_row = next(
+        index
+        for index, row in raw.iterrows()
+        if any(str(value).strip().startswith("Densidade populacional") for value in row)
+    )
+    names = raw.iloc[header_row].tolist()
+    df = raw.iloc[header_row + 2:].copy()
+    columns = []
+    occurrences: dict[str, int] = {}
+    for index, name in enumerate(names):
+        column = str(name).strip() if pd.notna(name) else f"col_{index}"
+        occurrence = occurrences.get(column, 0)
+        occurrences[column] = occurrence + 1
+        columns.append(column if occurrence == 0 else f"{column}_{occurrence}")
+    df.columns = columns
+    df = df.rename(columns={"col_0": "municipality"})
     df = df.rename(columns={
         "Densidade populacional": "pop_density",
         "Taxa de crescimento efetivo": "growth_effective",
@@ -145,6 +156,73 @@ def load_ine_population_all(years: range | list[int] | None = None) -> pd.DataFr
             for p in sorted(PATHS["raw"]["ine_aer_dir"].glob("AER*_II_01.xlsx"))
         ]
     return pd.concat([load_ine_population(y) for y in years], ignore_index=True)
+
+
+def load_ine_population_age(year: int) -> pd.DataFrame:
+    """Load resident population totals and age groups by municipality and sex.
+
+    INE renumbered this table in 2022: it is ``II_01_03`` before and after 2022,
+    but ``II_01_02`` in 2022. The AER tables are municipality-level; they do not
+    provide freguesia rows.
+    """
+    path = PATHS["raw"]["ine_aer_dir"] / f"AER{year}_II_01.xlsx"
+    workbook = pd.ExcelFile(require(path))
+    sheet = "II_01_02" if year == 2022 else "II_01_03"
+    if sheet not in workbook.sheet_names:
+        raise ValueError(f"Expected {sheet!r} in {path.name}; found {workbook.sheet_names}")
+
+    raw = pd.read_excel(workbook, sheet_name=sheet, header=None)
+    data_start = next(
+        index
+        for index, value in raw.iloc[:, 0].items()
+        if str(value).strip() == "Portugal"
+    )
+    header_rows = raw.iloc[max(0, data_start - 3):data_start]
+    labels = []
+    for column_index in range(raw.shape[1]):
+        parts = []
+        for value in header_rows.iloc[:, column_index]:
+            text = str(value).strip()
+            if text not in {"", "nan", "HM", "H", "M"} and text not in parts:
+                parts.append(text)
+        labels.append("__".join(parts) or f"col_{column_index}")
+
+    columns = []
+    occurrences: dict[str, int] = {}
+    for index, label in enumerate(labels):
+        occurrence = occurrences.get(label, 0)
+        occurrences[label] = occurrence + 1
+        columns.append(label if occurrence == 0 else f"{label}_{occurrence}")
+
+    df = raw.iloc[data_start:].copy()
+    df.columns = columns
+    df = df.rename(columns={columns[0]: "municipality"})
+    municipality_flag = next((column for column in df.columns if column == "Município"), None)
+    code_column = next(
+        (column for column in df.columns if column in {"DTMN", "NUTS_2013", "NUTS_DTMN", "NUTS_2024"}),
+        None,
+    )
+    if municipality_flag is not None:
+        df = df[df[municipality_flag].eq("x")].copy()
+    elif code_column is not None:
+        codes = df[code_column].astype(str).str.strip()
+        df = df[codes.str.fullmatch(r"\d{4}") & codes.ne("0000")].copy()
+    if code_column is not None:
+        codes = df[code_column].astype(str).str.strip()
+        df["dtcc"] = codes.str[-4:].str.zfill(4)
+    df["ine_year"] = year
+    df["geo_level"] = "municipality"
+    return df.reset_index(drop=True)
+
+
+def load_ine_population_age_all(years: range | list[int] | None = None) -> pd.DataFrame:
+    """Stack resident population age tables for the requested AER years."""
+    if years is None:
+        years = [
+            int(path.stem[3:7])
+            for path in sorted(PATHS["raw"]["ine_aer_dir"].glob("AER*_II_01.xlsx"))
+        ]
+    return pd.concat([load_ine_population_age(year) for year in years], ignore_index=True)
 
 
 # --------------------------------------------------------- Boundaries ------

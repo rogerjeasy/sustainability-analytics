@@ -42,10 +42,13 @@ After cloning, run `make data` to see which sources are missing on your machine.
 ### `raw/ine/` — INE Anuário Estatístico Regional
 - **Source:** Instituto Nacional de Estatística, <https://www.ine.pt/>
 - **Files:** `AER2019_II_01.xlsx` … `AER2024_II_01.xlsx` (chapter II.01, Population)
-- **Sheet `II_01_01`:** population density, effective/natural/migratory growth
-  rates, birth and death rates — **at município level**, with NUTS I/II/III columns
-- **Caveat:** two-row header (indicator names on one row, units on the next);
-  data starts at row 5.
+- **Sheet `II_01_01`:** population density and demographic rates — **at município
+  level**, with NUTS I/II/III columns.
+- **Age sheet:** resident population totals and age groups by sex are in
+  `II_01_03` for 2019–2021 and 2023–2024, and `II_01_02` for 2022. These files
+  contain município/concelho rows, not freguesia rows.
+- **Caveat:** header rows vary by year; use the shared loaders in
+  `wildfires.io` rather than reading workbook sheets directly.
 
 ### `raw/boundaries/` — administrative geometry
 - **`gadm41_PRT_2.json`** — GADM v4.1 level 2 = the 308 Portuguese concelhos.

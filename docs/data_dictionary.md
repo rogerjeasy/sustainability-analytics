@@ -48,6 +48,11 @@ chapter 01 and chapters 02–04.
 | `growth_migratory` | Migratory growth rate. |
 | `birth_rate`, `death_rate` | Crude rates, ‰. |
 
+The resident population and age-by-sex table is loaded separately from
+`II_01_03` for 2019–2021 and 2023–2024, and `II_01_02` for 2022. Its `Total`
+column and age-group columns are at município/concelho level; the AER files do
+not provide freguesia-level rows.
+
 **Coverage constraint:** the AER files cover 2019–2024, so attaching demography
 restricts the panel's usable window to those years.
 
