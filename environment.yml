@@ -1,0 +1,51 @@
+# Create with:  conda env create -f environment.yml
+# Update with:  conda env update -f environment.yml --prune
+#
+# Python is pinned to 3.11: geopandas/GDAL, statsmodels and xgboost all have
+# reliable conda-forge builds there. 3.13+ wheels are still patchy.
+name: wildfires
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+
+  # core
+  - pandas>=2.2
+  - numpy>=1.26
+  - pyarrow            # parquet engine for the processed panel
+  - pyyaml
+  - openpyxl           # ICNF / INE .xlsx readers
+
+  # geospatial
+  - geopandas>=1.0
+  - shapely>=2.0
+  - pyproj
+  - fiona
+  - rasterio           # severity_2023.tiff
+  - mapclassify        # choropleth binning for .explore()/.plot()
+  - folium
+
+  # stats & ML
+  - statsmodels        # Anibal: OLS/panel models, Granger causality
+  - scikit-learn
+  - xgboost
+  - scipy
+
+  # viz
+  - matplotlib>=3.8
+  - seaborn
+
+  # notebooks & report build
+  - jupyterlab
+  - ipykernel
+  - jupyter-book
+  - nbstripout
+  - pre-commit
+
+  # tests & lint
+  - pytest
+  - ruff
+
+  - pip
+  - pip:
+      - -e .           # installs src/wildfires as an editable package

@@ -1,0 +1,28 @@
+# Fallback for machines without conda. environment.yml is the source of truth —
+# geopandas/rasterio via pip need system GDAL and often fail on macOS.
+pandas>=2.2
+numpy>=1.26
+pyarrow
+pyyaml
+openpyxl
+geopandas>=1.0
+shapely>=2.0
+pyproj
+fiona
+rasterio
+mapclassify
+folium
+statsmodels
+scikit-learn
+xgboost
+scipy
+matplotlib>=3.8
+seaborn
+jupyterlab
+ipykernel
+jupyter-book
+nbstripout
+pre-commit
+pytest
+ruff
+-e .

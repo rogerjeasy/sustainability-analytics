@@ -1,0 +1,10 @@
+# Chapter order in the built report. Paths are relative to the repo root.
+format: jb-book
+root: ../notebooks/00_introduction
+chapters:
+  - file: ../notebooks/01_data_cleaning
+  - file: ../notebooks/02_eda
+  - file: ../notebooks/03_statistical_analysis
+  - file: ../notebooks/04_ml_fire_risk
+  - file: ../notebooks/05_discussion
+  - file: references

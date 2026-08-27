@@ -1,0 +1,33 @@
+# All paths are relative to the repository root, which wildfires.config resolves
+# at import time. Never hardcode an absolute path in a notebook.
+
+raw:
+  effis_polygons:   data/raw/effis/modis.ba.poly.shp
+  effis_severity:   data/raw/effis/severity_2023.tiff
+  icnf_statistics:  data/raw/icnf/EstatisticasIncendiosSGIF-2001-2025.xlsx
+  ine_aer_dir:      data/raw/ine
+  gadm_municipal:   data/raw/boundaries/gadm41_PRT_2.json
+  nuts_dir:         data/raw/boundaries
+  weather_dir:      data/raw/weather
+
+interim:
+  effis_subset:     data/interim/effis/effis_subset_ES-FR-IT-PT.csv
+  effis_subset_geo: data/interim/effis/effis_subset_ES-FR-IT-PT.gpkg
+  effis_pt_municipal: data/interim/effis_pt_municipal.parquet
+
+processed:
+  # The analysis panel every chapter reads: one row per (dtcc, year).
+  panel:            data/processed/panel_municipality_year.parquet
+
+external:
+  # Small, committed lookup tables.
+  dtcc_crosswalk:   data/external/dtcc_crosswalk.csv
+
+# ---- Analysis conventions, shared by every chapter ----------------------
+conventions:
+  crs_geographic: EPSG:4326
+  crs_metric:     EPSG:3763      # PT-TM06/ETRS89 — use for areas and distances
+  # EFFIS lowered its minimum mapped fire size ~2020; apply this floor before
+  # reading any cross-year trend. See docs/EFFIS_data_dictionary.md.
+  min_fire_ha:    30
+  study_years:    [2019, 2024]
