@@ -158,18 +158,37 @@ def load_ine_population_all(years: range | list[int] | None = None) -> pd.DataFr
     return pd.concat([load_ine_population(y) for y in years], ignore_index=True)
 
 
-def load_ine_population_age(year: int) -> pd.DataFrame:
+def load_ine_population_age(year: int, *, _sheet: str | None = None) -> pd.DataFrame:
     """Load resident population totals and age groups by municipality and sex.
 
-    INE renumbered this table in 2022: it is ``II_01_03`` before and after 2022,
-    but ``II_01_02`` in 2022. The AER tables are municipality-level; they do not
-    provide freguesia rows.
+    The main table is ``II_01_03`` before and after 2022, and ``II_01_02`` in
+    2022. Older workbooks split the older age groups into companion ``...c``
+    sheets, which are merged by municipality. The AER tables are
+    municipality-level; they do not provide freguesia rows.
     """
     path = PATHS["raw"]["ine_aer_dir"] / f"AER{year}_II_01.xlsx"
     workbook = pd.ExcelFile(require(path))
-    sheet = "II_01_02" if year == 2022 else "II_01_03"
-    if sheet not in workbook.sheet_names:
-        raise ValueError(f"Expected {sheet!r} in {path.name}; found {workbook.sheet_names}")
+    primary_sheets = ["II_01_02", "II_01_02c"] if year == 2022 else ["II_01_03", "II_01_03c"]
+    expected_sheets = primary_sheets
+    sheet = _sheet or next((name for name in primary_sheets if name in workbook.sheet_names), None)
+    if sheet is None:
+        raise ValueError(
+            f"Expected one of {expected_sheets!r} in {path.name}; "
+            f"found {workbook.sheet_names}"
+        )
+
+    if _sheet is None:
+        companion = next((name for name in primary_sheets[1:] if name in workbook.sheet_names), None)
+        if companion is not None:
+            main = load_ine_population_age(year, _sheet=sheet)
+            extra = load_ine_population_age(year, _sheet=companion)
+            age_columns = [
+                "25-64 anos",
+                "65 e mais anos__Total",
+                "75 e mais anos",
+            ]
+            keys = ["municipality"] + (["dtcc"] if "dtcc" in main and "dtcc" in extra else [])
+            return main.merge(extra[keys + age_columns], on=keys, how="left", validate="one_to_one")
 
     raw = pd.read_excel(workbook, sheet_name=sheet, header=None)
     data_start = next(
@@ -210,6 +229,41 @@ def load_ine_population_age(year: int) -> pd.DataFrame:
     if code_column is not None:
         codes = df[code_column].astype(str).str.strip()
         df["dtcc"] = codes.str[-4:].str.zfill(4)
+
+    # The workbook layout changed between years: age groups may be split into
+    # HM/H/M columns, and territorial columns were renamed with NUTS 2024.
+    # Keep the first total (HM) column for each group so yearly concatenation
+    # has one stable schema instead of one column per workbook layout.
+    age_groups = [
+        "Total",
+        "0 a 14 anos",
+        "15 a 24 anos",
+        "25-64 anos",
+        "65 e mais anos__Total",
+        "75 e mais anos",
+    ]
+    selected = ["municipality"]
+    if "dtcc" in df:
+        selected.append("dtcc")
+    for age_group in age_groups:
+        candidates = [
+            column
+            for column in df.columns
+            if column == age_group or column.startswith(f"{age_group}__")
+        ]
+        if not candidates:
+            continue
+        preferred = next(
+            (column for column in candidates if column == age_group), candidates[0]
+        )
+        if preferred != age_group:
+            df = df.rename(columns={preferred: age_group})
+        selected.append(age_group)
+    df = df[selected].copy()
+    for column in age_groups:
+        if column not in df:
+            continue
+        df[column] = pd.to_numeric(df[column], errors="coerce")
     df["ine_year"] = year
     df["geo_level"] = "municipality"
     return df.reset_index(drop=True)

@@ -44,9 +44,10 @@ After cloning, run `make data` to see which sources are missing on your machine.
 - **Files:** `AER2019_II_01.xlsx` … `AER2024_II_01.xlsx` (chapter II.01, Population)
 - **Sheet `II_01_01`:** population density and demographic rates — **at município
   level**, with NUTS I/II/III columns.
-- **Age sheet:** resident population totals and age groups by sex are in
-  `II_01_03` for 2019–2021 and 2023–2024, and `II_01_02` for 2022. These files
-  contain município/concelho rows, not freguesia rows.
+- **Age sheets:** resident population totals and younger age groups are in
+  `II_01_03` for 2019–2021 and 2023–2024, and `II_01_02` for 2022. The older
+  age groups are in companion `II_01_03c`/`II_01_02c` sheets for 2019–2022.
+  These files contain município/concelho rows, not freguesia rows.
 - **Caveat:** header rows vary by year; use the shared loaders in
   `wildfires.io` rather than reading workbook sheets directly.
 
