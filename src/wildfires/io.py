@@ -7,6 +7,10 @@ remember them.
 
 from __future__ import annotations
 
+from pathlib import Path
+from shutil import copy2
+from tempfile import gettempdir
+
 import geopandas as gpd
 import pandas as pd
 
@@ -88,11 +92,23 @@ def load_icnf(level: str = "concelho") -> pd.DataFrame:
     if level not in ICNF_SHEETS:
         raise ValueError(f"level must be one of {sorted(ICNF_SHEETS)}, got {level!r}")
 
-    df = pd.read_excel(
-        require(PATHS["raw"]["icnf_statistics"]),
-        sheet_name=ICNF_SHEETS[level],
-        na_values=["(sem informação)"],
-    )
+    source = require(PATHS["raw"]["icnf_statistics"])
+    try:
+        df = pd.read_excel(
+            source,
+            sheet_name=ICNF_SHEETS[level],
+            na_values=["(sem informação)"],
+        )
+    except PermissionError:
+        # OneDrive can deny direct reads while still allowing a local copy.
+        local_copy = Path(gettempdir()) / source.name
+        if not local_copy.is_file():
+            copy2(source, local_copy)
+        df = pd.read_excel(
+            local_copy,
+            sheet_name=ICNF_SHEETS[level],
+            na_values=["(sem informação)"],
+        )
     df.columns = [str(c).strip() for c in df.columns]
     df = df.rename(columns={"Ano": "year", "Região NUTS III (2013)": "nuts3_name"})
 
