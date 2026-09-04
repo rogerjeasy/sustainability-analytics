@@ -11,6 +11,7 @@ import geopandas as gpd
 import pandas as pd
 
 from wildfires.config import CRS_GEOGRAPHIC, PATHS, require
+from wildfires.clean import normalise_dtcc
 
 # ---------------------------------------------------------------- EFFIS ----
 
@@ -107,6 +108,29 @@ def load_icnf(level: str = "concelho") -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------- INE ------
+
+def load_municipality_dimensions() -> pd.DataFrame:
+    """Load municipality areas from the data.gov.pt 2022 dimensions table."""
+    df = pd.read_csv(
+        require(PATHS["raw"]["municipality_dimensions"]),
+        encoding="latin1",
+        parse_dates=["Data de Referência"],
+    )
+    df = df.rename(columns={
+        "Data de Referência": "reference_date",
+        "Superfície (km2)": "area_km2",
+        "Código Concelho": "dtcc",
+        "Designação Concelho": "municipality",
+        "Código Distrito": "district_code",
+        "Designação Distrito": "district",
+        "Código NUTSIII": "nuts3_code",
+        "Designação NUTSIII": "nuts3",
+        "Código NUTSII": "nuts2_code",
+        "Designação NUTSII": "nuts2",
+    })
+    df["dtcc"] = normalise_dtcc(df["dtcc"])
+    df["area_km2"] = pd.to_numeric(df["area_km2"], errors="coerce")
+    return df.reset_index(drop=True)
 
 def load_ine_population(year: int) -> pd.DataFrame:
     """INE Anuário Estatístico Regional population indicators, município level.

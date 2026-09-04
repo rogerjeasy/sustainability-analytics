@@ -4,6 +4,7 @@
 raw:
   effis_polygons:   data/raw/effis/modis.ba.poly.shp
   effis_severity:   data/raw/effis/severity_2023.tiff
+  municipality_dimensions: data/raw/dimensions/superficies-por-concelho-2022.csv
   icnf_statistics:  data/raw/icnf/EstatisticasIncendiosSGIF-2001-2025.xlsx
   ine_aer_dir:      data/raw/ine
   gadm_municipal:   data/raw/boundaries/gadm41_PRT_2.json
