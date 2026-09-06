@@ -324,14 +324,18 @@ def _code_column(raw: pd.DataFrame, header_row: int, first_data: int) -> int:
     """Locate the 7-digit hierarchical code column.
 
     Its header moved across editions: DTMN/NUTS_DTMN (2019), NUTS_2013 (2020-2022),
-    NUTS_2024 (2023-2024). The rightmost match is the 7-digit one; 2019 also carries
-    a 4-digit DTMN column immediately to its left.
+    NUTS_2024 (2023-2024). The column with the *highest* index among all matches
+    is the 7-digit one; 2019 also carries a 4-digit DTMN column immediately to its
+    left, and 2022 additionally repeats the code header for a second, narrower
+    NUTS breakdown further right. Every match in the header-row range is compared
+    by column position, not by which row happened to be scanned last.
     """
     found = None
     for index in range(header_row, first_data):
         for position, value in enumerate(raw.iloc[index]):
             if normalise_indicator(value) in _CODE_HEADERS:
-                found = position
+                if found is None or position > found:
+                    found = position
     if found is None:
         raise ValueError(f"No column among {sorted(_CODE_HEADERS)} above row {first_data}")
     return found
@@ -355,24 +359,29 @@ def _read_indicator_sheet(year: int, sheet: str, mapping: dict[str, str]) -> pd.
             pd.to_numeric(body[names.index(label)], errors="coerce")
             if label in names else pd.NA
         )
-    # Every sheet ends with a footnote/URL block whose column-0 cell is text (so it
-    # is not caught by a territory-only filter) but which carries no code — real
-    # territory rows always have one. Drop on code too, or these rows collide as
-    # duplicate NaN keys and break the one_to_one merge in load_indicators_year.
-    return out[out["territory"].notna() & out["code"].notna()].reset_index(drop=True)
+    # Two kinds of rows must be dropped before this can be a merge key:
+    # (1) every sheet ends with a footnote/URL block whose column-0 cell is text
+    #     (so it is not caught by a territory-only filter) but which carries no
+    #     code — real territory rows always have one;
+    # (2) the Azores print island-grouping subtotal rows (Santa Maria, São
+    #     Miguel, ...) with '-' in the code column instead of a real code — these
+    #     are neither municipalities nor NUTS III units, and every downstream
+    #     consumer already filters to 7-digit codes, so dropping them costs
+    #     nothing. Corvo is both one of these island subtotals ('-') and its own
+    #     municipality (a real 7-digit code); dropping '-' rows keeps Corvo's
+    #     real municipality row and only removes its duplicate island subtotal.
+    # Without both filters, 'code' is not unique within a sheet and the
+    # one_to_one merge in load_indicators_year raises MergeError.
+    keep = out["territory"].notna() & out["code"].notna() & out["code"].ne("-")
+    return out[keep].reset_index(drop=True)
 
 
 def load_indicators_year(year: int) -> pd.DataFrame:
     """Municipality-level population indicators for one AER edition."""
     main = _read_indicator_sheet(year, "II_01_01", INDICATORS_MAIN)
     cont = _read_indicator_sheet(year, "II_01_01c", INDICATORS_CONT)
-    # The Azores island groupings (Santa Maria, São Miguel, ...) print '-' in the
-    # code column instead of a real hierarchical code, and Corvo is simultaneously
-    # both an island grouping ('-') and its own municipality (a real 7-digit code)
-    # — so 'code' alone is not unique, and neither is 'territory' alone. The pair
-    # is: every real territory row is one unique (territory, code) combination.
     merged = main.merge(
-        cont, on=["territory", "code"], how="outer", validate="one_to_one",
+        cont.drop(columns="territory"), on="code", how="outer", validate="one_to_one",
     )
     merged["year"] = year
     return merged
