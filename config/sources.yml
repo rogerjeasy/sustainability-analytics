@@ -1,0 +1,107 @@
+# The single source of truth for every raw input. `make fetch` reads only this.
+#
+# kind:
+#   http    direct download from a stable URL
+#   gdrive  public Google Drive file id (handles the large-file confirm token)
+#   manual  no scriptable route; print instructions and fail
+#
+# sha256 values are computed from the working copies used to build the panel.
+# A mismatch is a hard failure: a truncated download must not silently produce
+# a broken panel.
+
+release_tag: v0.1-data
+release_repo: rogerjeasy/sustainability-analytics
+gdrive_folder: https://drive.google.com/drive/folders/1PQkPYVMMe8UIoFqVLtuh9PdQolV-Fvxd
+
+sources:
+  - name: EFFIS burnt-area polygons (.shp)
+    kind: gdrive
+    file_id: 1MvgxfKz0ABNwO5V6m2ip3ld33W25DmWm
+    target: data/raw/effis/modis.ba.poly.shp
+    bytes: 323262544
+    sha256: f4a66dce6f917c94cf6d9fa951cb2fbf5f475062615f5fad5dd13e8fa17ad0f8
+
+  - name: EFFIS burnt-area attributes (.dbf)
+    kind: gdrive
+    file_id: 14e9uKnH3rehHK4QowhxFr-U8Ov-8iwi9
+    target: data/raw/effis/modis.ba.poly.dbf
+    bytes: 159932271
+    sha256: 78bb22a258b82ddfbcfccd6d09595d553ed7d9614fbba33b87b4331fa15b6c97
+
+  - name: EFFIS burnt-area index (.shx)
+    kind: gdrive
+    file_id: 1OMn_snhrRoTgL466F7KiM480DY7ZuIvS
+    target: data/raw/effis/modis.ba.poly.shx
+    bytes: 841292
+    sha256: 96059cb00c726244057afca385b39256f9e9d10aa6b88c73a931ab01ec07d81a
+
+  - name: EFFIS burnt-area projection (.prj)
+    kind: gdrive
+    file_id: 1b49mWOtu-QxEm1dYr14-VeNvt8UXSuLG
+    target: data/raw/effis/modis.ba.poly.prj
+    bytes: 144
+    sha256: c69b41ee32e7bda0958c84e843bb5dc34c29130c356129f66448a1ed2364ceb7
+
+  - name: EFFIS severity raster 2023
+    kind: gdrive
+    file_id: 1uQOJGXVLq_74DLXaOnJGlLqNEcZC3SK-
+    target: data/raw/effis/severity_2023.tiff
+    bytes: 103839354
+    sha256: e533b09e5fcbc0640f5cdcda03959163636e1ce2c44816f64e2c02435829ae96
+
+  - name: ICNF rural fire statistics 2001-2025
+    kind: http
+    url: https://github.com/rogerjeasy/sustainability-analytics/releases/download/v0.1-data/EstatisticasIncendiosSGIF-2001-2025.xlsx
+    target: data/raw/icnf/EstatisticasIncendiosSGIF-2001-2025.xlsx
+    bytes: 1265335
+    sha256: 598e16b3a16ca398aee2f90e8ec5baef627d4d6eeb792db6892990030fc31a84
+
+  - name: INE AER 2019 chapter II.01
+    kind: http
+    url: https://github.com/rogerjeasy/sustainability-analytics/releases/download/v0.1-data/AER2019_II_01.xlsx
+    target: data/raw/ine/AER2019_II_01.xlsx
+    bytes: 346501
+    sha256: c373405379a48afc701cf07b5857b26202c75b275746253dc66041d526601dcc
+
+  - name: INE AER 2020 chapter II.01
+    kind: http
+    url: https://github.com/rogerjeasy/sustainability-analytics/releases/download/v0.1-data/AER2020_II_01.xlsx
+    target: data/raw/ine/AER2020_II_01.xlsx
+    bytes: 368632
+    sha256: ccc158e91755709fae315fe0856c95b2dd236a5b54b365a2597440ac8732490b
+
+  - name: INE AER 2021 chapter II.01
+    kind: http
+    url: https://github.com/rogerjeasy/sustainability-analytics/releases/download/v0.1-data/AER2021_II_01.xlsx
+    target: data/raw/ine/AER2021_II_01.xlsx
+    bytes: 357501
+    sha256: e89bc0a57dde8d25ce922beafe7c2cd72bcbe2bd80ca711a5994b917c551bfa3
+
+  - name: INE AER 2022 chapter II.01
+    kind: http
+    url: https://github.com/rogerjeasy/sustainability-analytics/releases/download/v0.1-data/AER2022_II_01.xlsx
+    target: data/raw/ine/AER2022_II_01.xlsx
+    bytes: 339174
+    sha256: 0c31ead751c1082eb54ebef231cc82bfdc8d4d14daea3eea99719232447c97b0
+
+  - name: INE AER 2023 chapter II.01
+    kind: http
+    url: https://github.com/rogerjeasy/sustainability-analytics/releases/download/v0.1-data/AER2023_II_01.xlsx
+    target: data/raw/ine/AER2023_II_01.xlsx
+    bytes: 333809
+    sha256: 5fa79e8801e9ec1c81e9575c64a74109560385624dde22a24911dbd41e9a113a
+
+  - name: INE AER 2024 chapter II.01
+    kind: http
+    url: https://github.com/rogerjeasy/sustainability-analytics/releases/download/v0.1-data/AER2024_II_01.xlsx
+    target: data/raw/ine/AER2024_II_01.xlsx
+    bytes: 294984
+    sha256: 8ae389f2e075ddd7d59822d9569c041462907c7d8bb4ed28fa467756e609ae73
+
+  - name: GADM level-2 municipal boundaries
+    kind: http
+    url: https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_PRT_2.json.zip
+    target: data/raw/boundaries/gadm41_PRT_2.json
+    unzip_member: gadm41_PRT_2.json
+    bytes: 939819
+    sha256: 1c23bb359e23ddc8f5eddad22bdc35ddbef3caf93420a267ca998f0db551965e
