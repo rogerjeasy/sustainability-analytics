@@ -160,3 +160,26 @@ class TestSeriesBreaks:
         """The flag is metadata. 2021 density must still carry real numbers."""
         df = load_indicators_year(2021)
         assert df.pop_density.notna().sum() > 300
+
+
+class TestSingleINEReader:
+    def test_io_exposes_no_ine_loaders(self):
+        """One reader, not two. Duplicated parsers drift and disagree silently."""
+        import wildfires.io as io_module
+
+        leaked = [n for n in dir(io_module) if "ine_population" in n]
+        assert leaked == [], f"io.py still exports INE loaders: {leaked}"
+
+    def test_io_drops_the_nonexistent_dimensions_loader(self):
+        """raw/dimensions/superficies-por-concelho-2022.csv is not on disk.
+
+        Municipality area comes from GADM geometry in EPSG:3763 instead.
+        """
+        import wildfires.io as io_module
+
+        assert not hasattr(io_module, "load_municipality_dimensions")
+
+    def test_paths_no_longer_declares_municipality_dimensions(self):
+        from wildfires.config import PATHS
+
+        assert "municipality_dimensions" not in PATHS["raw"]
