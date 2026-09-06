@@ -69,3 +69,36 @@ class TestVerify:
     def test_wrong_content_is_corrupt(self, tmp_path):
         """A truncated download must fail loudly, not produce a broken panel."""
         assert verify(self._source(tmp_path, b"hello", "0" * 64)) == "corrupt"
+
+
+INTERSTITIAL = (
+    '<!DOCTYPE html><html><head><title>Google Drive - Virus scan warning</title>'
+    '</head><body><form action="https://drive.usercontent.google.com/download" '
+    'method="get"><input type="hidden" name="id" value="ABC123">'
+    '<input type="hidden" name="export" value="download">'
+    '<input type="hidden" name="confirm" value="t">'
+    '<input type="hidden" name="uuid" value="40f24b61-a56c-465f-b969-2690b12295c2">'
+    '</form></body></html>'
+)
+
+
+class TestDriveConfirm:
+    def test_extracts_every_form_field(self):
+        from wildfires.fetch import parse_drive_confirm
+
+        fields = parse_drive_confirm(INTERSTITIAL)
+        assert fields["id"] == "ABC123"
+        assert fields["confirm"] == "t"
+        assert fields["uuid"] == "40f24b61-a56c-465f-b969-2690b12295c2"
+        assert fields["export"] == "download"
+
+    def test_binary_payload_is_not_mistaken_for_an_interstitial(self):
+        """Shapefile bytes start 0000270a and must not parse as a confirm page."""
+        from wildfires.fetch import parse_drive_confirm
+
+        assert parse_drive_confirm("\x00\x00\x27\x0a binary junk") == {}
+
+    def test_plain_html_without_a_form_yields_nothing(self):
+        from wildfires.fetch import parse_drive_confirm
+
+        assert parse_drive_confirm("<html><body>not a form</body></html>") == {}
