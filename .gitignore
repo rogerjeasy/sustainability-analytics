@@ -28,6 +28,10 @@ __pycache__/
 venv/
 env/
 
+# ---- Agent scratch ------------------------------------------------------
+# Subagent-driven-development workspace: ledger, briefs, review packages.
+.superpowers/
+
 # ---- Editors / OS -------------------------------------------------------
 .idea/
 .vscode/

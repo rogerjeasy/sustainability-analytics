@@ -14,8 +14,8 @@ from tempfile import gettempdir
 import geopandas as gpd
 import pandas as pd
 
-from wildfires.config import CRS_GEOGRAPHIC, PATHS, require
 from wildfires.clean import normalise_dtcc
+from wildfires.config import CRS_GEOGRAPHIC, PATHS, require
 
 # ---------------------------------------------------------------- EFFIS ----
 
@@ -59,6 +59,16 @@ def load_effis_polygons(country: str | None = "PT") -> gpd.GeoDataFrame:
         gdf = gdf[gdf["COUNTRY"] == country].copy()
     if "CLASS" in gdf.columns:
         gdf = gdf[gdf["CLASS"] == "FireSeason"].copy()
+
+    # The GeoPackage round-trips the numeric fields as text; coerce them back so
+    # downstream aggregation does not fail on a string dtype.
+    for col in ["AREA_HA", "PERCNA2K", *EFFIS_LANDCOVER_COLS]:
+        if col in gdf.columns:
+            gdf[col] = pd.to_numeric(gdf[col], errors="coerce")
+    if "FIREDATE" in gdf.columns:
+        gdf["FIREDATE"] = pd.to_datetime(gdf["FIREDATE"], format="ISO8601", errors="coerce")
+        gdf["fire_year"] = gdf["FIREDATE"].dt.year
+
     return gdf.reset_index(drop=True)
 
 
@@ -218,7 +228,9 @@ def load_ine_population_age(year: int, *, _sheet: str | None = None) -> pd.DataF
         )
 
     if _sheet is None:
-        companion = next((name for name in primary_sheets[1:] if name in workbook.sheet_names), None)
+        companion = next(
+            (name for name in primary_sheets[1:] if name in workbook.sheet_names), None
+        )
         if companion is not None:
             main = load_ine_population_age(year, _sheet=sheet)
             extra = load_ine_population_age(year, _sheet=companion)
@@ -248,7 +260,7 @@ def load_ine_population_age(year: int, *, _sheet: str | None = None) -> pd.DataF
 
     columns = []
     occurrences: dict[str, int] = {}
-    for index, label in enumerate(labels):
+    for _index, label in enumerate(labels):
         occurrence = occurrences.get(label, 0)
         occurrences[label] = occurrence + 1
         columns.append(label if occurrence == 0 else f"{label}_{occurrence}")
@@ -258,7 +270,8 @@ def load_ine_population_age(year: int, *, _sheet: str | None = None) -> pd.DataF
     df = df.rename(columns={columns[0]: "municipality"})
     municipality_flag = next((column for column in df.columns if column == "Município"), None)
     code_column = next(
-        (column for column in df.columns if column in {"DTMN", "NUTS_2013", "NUTS_DTMN", "NUTS_2024"}),
+        (column for column in df.columns
+         if column in {"DTMN", "NUTS_2013", "NUTS_DTMN", "NUTS_2024"}),
         None,
     )
     if municipality_flag is not None:
