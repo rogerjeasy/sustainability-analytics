@@ -92,9 +92,9 @@ def build_panel(save: bool = False) -> pd.DataFrame:
 
     panel = icnf.merge(fires, on=["dtcc", "year"], how="outer", validate="one_to_one")
 
-    # TODO(Roger): attach INE demography from load_ine_population_all() once the
-    # team agrees which AER indicators enter the panel. AER covers 2019-2024,
-    # so this merge will restrict the usable study window.
+    # TODO(Roger): attach INE demography from wildfires.ine.load_indicators_all()
+    # once the team agrees which AER indicators enter the panel. AER covers
+    # 2019-2024, so this merge will restrict the usable study window.
 
     panel = panel.sort_values(["dtcc", "year"]).reset_index(drop=True)
 
