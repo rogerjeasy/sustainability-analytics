@@ -14,8 +14,12 @@ from wildfires.ine import (
     TYPOLOGY_SHEET,
     add_aging_measures,
     add_territory_level,
+    load_indicators_all,
+    load_indicators_year,
     load_population_all,
     load_typology_all,
+    normalise_indicator,
+    series_breaks,
 )
 
 pytestmark = pytest.mark.skipif(
@@ -86,3 +90,73 @@ class TestAgingMeasures:
         assert row.aging_index == pytest.approx(
             100 * row.pop_65_plus / row.pop_0_14
         )
+
+
+class TestNormaliseIndicator:
+    def test_strips_break_in_series_marker(self):
+        # AER2021 writes 'Densidade populacional \n┴'. The trailing sign is why
+        # an exact-string match silently drops pop_density for 2021 alone.
+        assert normalise_indicator("Densidade populacional \n┴") == "Densidade populacional"
+
+    def test_strips_other_conventional_signs(self):
+        assert normalise_indicator("Taxa bruta de natalidade §") == "Taxa bruta de natalidade"
+
+    def test_collapses_internal_whitespace(self):
+        assert normalise_indicator("Índice  de\nlongevidade") == "Índice de longevidade"
+
+
+class TestIndicators:
+    def test_pop_density_present_for_every_edition(self):
+        """Regression: the 2021 break-in-series marker must not drop the column."""
+        df = load_indicators_all()
+        muni = df[df.code.str.len().eq(7) & df.code.str[3:].ne("0000")]
+        # pandas 3.0 dropped generic method delegation on SeriesGroupBy (no more
+        # `.groupby(...).col.notna()`), so notna() is applied before grouping.
+        counts = muni.pop_density.notna().groupby(muni.year).sum()
+        assert (counts > 0).all(), f"pop_density missing for {counts[counts == 0].index.tolist()}"
+
+    def test_all_six_rate_columns_populated_every_year(self):
+        df = load_indicators_all()
+        for col in ("pop_density", "growth_effective", "growth_natural",
+                    "growth_migratory", "birth_rate", "death_rate"):
+            per_year = df[col].notna().groupby(df.year).sum()
+            assert (per_year > 0).all(), f"{col} empty in {per_year[per_year == 0].index.tolist()}"
+
+    def test_dependency_index_uses_the_real_ine_label(self):
+        """INE writes 'de idosas/os', not 'de idosos'. Wrong label = silent all-null."""
+        df = load_indicators_year(2024)
+        assert df.old_age_dependency_ine.notna().any()
+
+    def test_continuation_columns_survive_position_shift(self):
+        """II_01_01c shifts columns between editions; name lookup must absorb it."""
+        for year in (2019, 2022, 2024):
+            df = load_indicators_year(year)
+            assert df.aging_index_ine.notna().any(), f"aging index lost in {year}"
+            assert df.longevity_index.notna().any(), f"longevity lost in {year}"
+
+    def test_308_municipalities_every_year(self):
+        df = load_indicators_all()
+        muni = df[df.code.str.len().eq(7) & df.code.str[3:].ne("0000")]
+        assert set(muni.groupby("year").size()) == {308}
+
+    def test_missing_markers_become_nan_not_strings(self):
+        df = load_indicators_all()
+        assert df.pop_density.map(lambda v: isinstance(v, str)).sum() == 0
+
+
+class TestSeriesBreaks:
+    def test_records_the_2021_density_break(self):
+        breaks = series_breaks()
+        row = breaks[(breaks.year == 2021) & (breaks.sheet == "II_01_01")]
+        assert "Densidade populacional" in set(row.indicator)
+
+    def test_records_the_2022_life_expectancy_breaks(self):
+        breaks = series_breaks()
+        got = set(breaks[(breaks.year == 2022) & (breaks.sheet == "II_01_01c")].indicator)
+        assert "Esperança de vida à nascença" in got
+        assert "Esperança de vida aos 65 anos" in got
+
+    def test_breaks_do_not_alter_values(self):
+        """The flag is metadata. 2021 density must still carry real numbers."""
+        df = load_indicators_year(2021)
+        assert df.pop_density.notna().sum() > 300

@@ -19,6 +19,8 @@ Every value returned here is read from the workbook. Nothing is imputed.
 
 from __future__ import annotations
 
+import re
+
 import pandas as pd
 
 from wildfires.config import PATHS, require
@@ -254,3 +256,150 @@ def load_typology_all(years: list[int] | None = None) -> pd.DataFrame:
         df["pop_0_14"] + df["pop_15_24"] + df["pop_25_64"] + df["pop_65_plus"]
     )
     return df
+
+
+# --- Table II.1.1/_01c: population density, growth and crude birth/death rates,
+# plus the continuation sheet's aging/dependency/longevity indices. -----------
+#
+# INE conventional signs, defined in each workbook's Sinais_Signs sheet. They are
+# appended to header cells as well as values, which is why indicator names must be
+# normalised before matching. '┴' means quebra de serie (break in series) and is
+# captured as metadata by series_breaks(); it never changes a value.
+INE_SIGNS = ("┴", "§", "…", "ə", "//")
+
+# Sheet II_01_01: municipality-level population indicators. Positions are stable
+# across editions, but names are matched anyway so a future insert cannot shift them.
+INDICATORS_MAIN = {
+    "Densidade populacional": "pop_density",
+    "Taxa de crescimento efetivo": "growth_effective",
+    "Taxa de crescimento natural": "growth_natural",
+    "Taxa de crescimento migratório": "growth_migratory",
+    "Taxa bruta de natalidade": "birth_rate",
+    "Taxa bruta de mortalidade": "death_rate",
+}
+
+# Sheet II_01_01c: positions genuinely move between editions (2022 inserts
+# 'Idade mediana da populacao residente'; 2024 drops the foreign-population column),
+# so these MUST be located by name.
+INDICATORS_CONT = {
+    "Índice de envelhecimento": "aging_index_ine",
+    "Índice de renovação da população em idade ativa": "renewal_index",
+    "Índice de dependência de idosas/os": "old_age_dependency_ine",
+    "Índice de longevidade": "longevity_index",
+}
+
+_CODE_HEADERS = {"DTMN", "NUTS_DTMN", "NUTS_2013", "NUTS_2024"}
+
+
+def normalise_indicator(name: object) -> str:
+    """Strip INE conventional signs and collapse whitespace in a header cell."""
+    text = str(name)
+    for sign in INE_SIGNS:
+        text = text.replace(sign, "")
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _open_sheet(year: int, sheet: str) -> pd.DataFrame:
+    path = PATHS["raw"]["ine_aer_dir"] / f"AER{year}_II_01.xlsx"
+    return pd.read_excel(require(path), sheet_name=sheet, header=None)
+
+
+def _header_row(raw: pd.DataFrame, mapping: dict[str, str]) -> int:
+    wanted = set(mapping)
+    for index, row in raw.iterrows():
+        if wanted & {normalise_indicator(value) for value in row}:
+            return index
+    raise ValueError(f"No header row carrying any of {sorted(wanted)}")
+
+
+def _first_data_row(raw: pd.DataFrame) -> int:
+    """Portugal is the first territory in every AER table."""
+    for index, value in raw.iloc[:, 0].items():
+        if str(value).strip() == "Portugal":
+            return index
+    raise ValueError("No 'Portugal' row found; sheet layout changed")
+
+
+def _code_column(raw: pd.DataFrame, header_row: int, first_data: int) -> int:
+    """Locate the 7-digit hierarchical code column.
+
+    Its header moved across editions: DTMN/NUTS_DTMN (2019), NUTS_2013 (2020-2022),
+    NUTS_2024 (2023-2024). The rightmost match is the 7-digit one; 2019 also carries
+    a 4-digit DTMN column immediately to its left.
+    """
+    found = None
+    for index in range(header_row, first_data):
+        for position, value in enumerate(raw.iloc[index]):
+            if normalise_indicator(value) in _CODE_HEADERS:
+                found = position
+    if found is None:
+        raise ValueError(f"No column among {sorted(_CODE_HEADERS)} above row {first_data}")
+    return found
+
+
+def _read_indicator_sheet(year: int, sheet: str, mapping: dict[str, str]) -> pd.DataFrame:
+    raw = _open_sheet(year, sheet)
+    header_row = _header_row(raw, mapping)
+    first_data = _first_data_row(raw)
+    names = [normalise_indicator(value) for value in raw.iloc[header_row]]
+    body = raw.iloc[first_data:]
+
+    out = pd.DataFrame({
+        "territory": body[0].astype("string").str.strip(),
+        "code": body[_code_column(raw, header_row, first_data)].astype("string").str.strip(),
+    })
+    for label, column in mapping.items():
+        # to_numeric turns the 'x' / '…' / '§' missing markers into NaN, as documented
+        # in Sinais_Signs. Absent indicators stay absent rather than being invented.
+        out[column] = (
+            pd.to_numeric(body[names.index(label)], errors="coerce")
+            if label in names else pd.NA
+        )
+    # Every sheet ends with a footnote/URL block whose column-0 cell is text (so it
+    # is not caught by a territory-only filter) but which carries no code — real
+    # territory rows always have one. Drop on code too, or these rows collide as
+    # duplicate NaN keys and break the one_to_one merge in load_indicators_year.
+    return out[out["territory"].notna() & out["code"].notna()].reset_index(drop=True)
+
+
+def load_indicators_year(year: int) -> pd.DataFrame:
+    """Municipality-level population indicators for one AER edition."""
+    main = _read_indicator_sheet(year, "II_01_01", INDICATORS_MAIN)
+    cont = _read_indicator_sheet(year, "II_01_01c", INDICATORS_CONT)
+    # The Azores island groupings (Santa Maria, São Miguel, ...) print '-' in the
+    # code column instead of a real hierarchical code, and Corvo is simultaneously
+    # both an island grouping ('-') and its own municipality (a real 7-digit code)
+    # — so 'code' alone is not unique, and neither is 'territory' alone. The pair
+    # is: every real territory row is one unique (territory, code) combination.
+    merged = main.merge(
+        cont, on=["territory", "code"], how="outer", validate="one_to_one",
+    )
+    merged["year"] = year
+    return merged
+
+
+def load_indicators_all(years: list[int] | None = None) -> pd.DataFrame:
+    """Stack the population indicators of every AER edition."""
+    years = sorted(SHEET_SPEC) if years is None else years
+    return pd.concat([load_indicators_year(y) for y in years], ignore_index=True)
+
+
+def series_breaks(years: list[int] | None = None) -> pd.DataFrame:
+    """Every indicator INE flags with '┴' (quebra de serie / break in series).
+
+    2021 flags 'Densidade populacional' — the Censos 2021 re-basing — so density is
+    not strictly comparable across 2020 -> 2021. Recorded, never corrected for.
+    """
+    years = sorted(SHEET_SPEC) if years is None else years
+    rows = []
+    for year in years:
+        for sheet, mapping in (("II_01_01", INDICATORS_MAIN), ("II_01_01c", INDICATORS_CONT)):
+            raw = _open_sheet(year, sheet)
+            header = raw.iloc[_header_row(raw, mapping)]
+            for value in header:
+                if "┴" in str(value):
+                    rows.append({
+                        "year": year, "sheet": sheet,
+                        "indicator": normalise_indicator(value),
+                    })
+    return pd.DataFrame(rows, columns=["year", "sheet", "indicator"])
