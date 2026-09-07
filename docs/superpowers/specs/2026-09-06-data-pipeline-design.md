@@ -85,11 +85,21 @@ exactly as published and are never interpolated or smoothed.
 
 Two burned-area conventions that answer different questions:
 
-- `AreaArd*_NoConcelho` — area burned **within** the municipality. **Empty before 2017.**
 - `AreaArd*_IncendioInicioConc` — area of fires that **ignited** in the municipality.
-  Populated for all years 2001–2025.
+  Populated **2001–2016 only**.
+- `AreaArd*_NoConcelho` — area burned **within** the municipality. Populated
+  **2017–2025 only**.
 
-Both are kept, distinctly named. They are not interchangeable and must not be coalesced.
+**The two are strictly complementary — no year carries both.** ICNF switched
+convention at 2017. Verified by counting non-nulls per year across all 6,921 rows:
+`_IncendioInicioConc` has 270–278 non-null per year through 2016 and exactly 0 from
+2017; `_NoConcelho` is the mirror image.
+
+The practical consequence is severe and must be stated wherever burned area is used:
+a 2001–2025 burned-area series **crosses a definitional break at 2017 that cannot be
+calibrated away**, because there is no overlap year to estimate a conversion from.
+Both columns are kept, distinctly named, and never coalesced — a coalesced column
+would look continuous while silently changing meaning mid-series.
 
 `Ninc_Sup24h` is a **count of fires burning over 24 h**, not a duration. Real per-fire
 duration is only available from EFFIS (`FIREDATE` → `FINALDATE`).

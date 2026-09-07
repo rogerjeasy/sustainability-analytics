@@ -17,7 +17,7 @@
 - **Nothing is imputed, interpolated or smoothed.** Missing stays missing. INE conventional signs (`x`, `…`, `§`, `ə`, `//`) become `NaN`; `┴` (break in series) is recorded as metadata, never used to alter values.
 - The joined panel covers 2019–2024 only (INE AER availability), 278 mainland municipalities, 1,668 rows.
 - The fire panel covers 2001–2025, 6,921 rows; municipality count per year rises from 270 (2001) to 278 (2006 onward). Never assert a flat 278 × 25 product.
-- ICNF `AreaArd*_NoConcelho` is null before 2017. It and `AreaArd*_IncendioInicioConc` are distinct measures and must never be coalesced into one column.
+- ICNF's two burned-area conventions are **strictly complementary, with no overlap year**: `AreaArd*_IncendioInicioConc` is populated 2001–2016 only, `AreaArd*_NoConcelho` 2017–2025 only. They are distinct measures, must never be coalesced, and no burned-area series spans 2001–2025 on one definition.
 - Tests must not require network access or the 565 MB EFFIS files. EFFIS-dependent tests skip when raw files are absent.
 - Line length 100 (ruff). `make lint` and `make test` must pass before each commit.
 - Repo is public: the release must attribute INE and ICNF.
