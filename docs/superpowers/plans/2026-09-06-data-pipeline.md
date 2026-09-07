@@ -1,6 +1,6 @@
 # Data Pipeline Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Two commands — `make fetch` and `make data` — take a fresh clone to an analysis-ready municipality-year panel for the statistics and ML chapters.
 
@@ -67,7 +67,7 @@ Reads `II_01_01` and `II_01_01c` — the only municipality-level source for dens
   - `load_indicators_all(years: list[int] | None = None) -> pd.DataFrame`
   - `series_breaks(years: list[int] | None = None) -> pd.DataFrame` — columns `year`, `sheet`, `indicator`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_ine.py`:
 
@@ -148,12 +148,12 @@ class TestSeriesBreaks:
         assert df.pop_density.notna().sum() > 300
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pytest tests/test_ine.py -k "Indicator or SeriesBreaks or NormaliseIndicator" -v`
 Expected: FAIL with `ImportError: cannot import name 'normalise_indicator'`
 
-- [ ] **Step 3: Implement the loader**
+- [x] **Step 3: Implement the loader**
 
 Add to `src/wildfires/ine.py`:
 
@@ -295,12 +295,12 @@ def series_breaks(years: list[int] | None = None) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["year", "sheet", "indicator"])
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `pytest tests/test_ine.py -v`
 Expected: PASS, including the pre-existing population tests.
 
-- [ ] **Step 5: Lint and commit**
+- [x] **Step 5: Lint and commit**
 
 ```bash
 ruff check src tests
@@ -334,7 +334,7 @@ Break-in-series flags are captured as metadata; values are untouched."
 - Consumes: Task 1's `load_indicators_all`
 - Produces: `wildfires.io` exports no INE symbol; `wildfires.ine` is the sole INE reader.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/test_ine.py`:
 
@@ -362,12 +362,12 @@ class TestSingleINEReader:
         assert "municipality_dimensions" not in PATHS["raw"]
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pytest tests/test_ine.py -k SingleINEReader -v`
 Expected: FAIL — `io.py still exports INE loaders: ['load_ine_population', ...]`
 
-- [ ] **Step 3: Delete the duplicates**
+- [x] **Step 3: Delete the duplicates**
 
 In `src/wildfires/io.py` remove these five functions entirely: `load_municipality_dimensions`, `load_ine_population`, `load_ine_population_all`, `load_ine_population_age`, `load_ine_population_age_all`. Keep every EFFIS, ICNF and boundary function.
 
@@ -379,7 +379,7 @@ In `config/paths.yml`, delete this line from the `raw:` block:
   municipality_dimensions: data/raw/dimensions/superficies-por-concelho-2022.csv
 ```
 
-- [ ] **Step 4: Run the full suite**
+- [x] **Step 4: Run the full suite**
 
 Run: `pytest -q && ruff check src tests`
 Expected: PASS. If any notebook or script imported a deleted function, `ruff` will not catch it — grep first:
@@ -390,7 +390,7 @@ grep -rn "load_ine_population\|load_municipality_dimensions" --include=*.py --in
 
 Repoint any hit at `wildfires.ine.load_indicators_all` or `wildfires.ine.load_population_all`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/wildfires/io.py config/paths.yml tests/test_ine.py
@@ -420,7 +420,7 @@ EPSG:3763 instead."
   - `sha256_of(path: Path) -> str`
   - `verify(source: Source) -> str` returning one of `"ok"`, `"missing"`, `"corrupt"`
 
-- [ ] **Step 1: Write `config/sources.yml`**
+- [x] **Step 1: Write `config/sources.yml`**
 
 Checksums are the real values computed from the current working copies. The `url` fields for `github_release` entries are filled in by Task 6; write them now with the tag that Task 6 creates.
 
@@ -534,7 +534,7 @@ sources:
     sha256: 1c23bb359e23ddc8f5eddad22bdc35ddbef3caf93420a267ca998f0db551965e
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Create `tests/test_fetch.py`:
 
@@ -612,12 +612,12 @@ class TestVerify:
         assert verify(self._source(tmp_path, b"hello", "0" * 64)) == "corrupt"
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `pytest tests/test_fetch.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'wildfires.fetch'`
 
-- [ ] **Step 4: Implement manifest loading and verification**
+- [x] **Step 4: Implement manifest loading and verification**
 
 Create `src/wildfires/fetch.py`:
 
@@ -700,12 +700,12 @@ def verify(source: Source) -> str:
     return "ok" if sha256_of(source.target) == source.sha256 else "corrupt"
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `pytest tests/test_fetch.py -v`
 Expected: PASS
 
-- [ ] **Step 6: Verify the manifest against the real files on disk**
+- [x] **Step 6: Verify the manifest against the real files on disk**
 
 Run:
 
@@ -719,7 +719,7 @@ for s in load_manifest():
 
 Expected: `ok` for all 13 sources. Any `corrupt` means a checksum in the manifest is wrong — recompute with `shasum -a256`, do not adjust the file.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add config/sources.yml src/wildfires/fetch.py tests/test_fetch.py
@@ -750,7 +750,7 @@ Google Drive serves files above roughly 100 MB behind a "Virus scan warning" int
   - `parse_drive_confirm(html: str) -> dict[str, str]` — the form fields, empty dict when the response is not an interstitial
   - `download(source: Source, *, force: bool = False) -> str` returning `"ok"`, `"skipped"` or `"failed"`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_fetch.py`:
 
@@ -788,12 +788,12 @@ class TestDriveConfirm:
         assert parse_drive_confirm("<html><body>not a form</body></html>") == {}
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pytest tests/test_fetch.py -k DriveConfirm -v`
 Expected: FAIL with `ImportError: cannot import name 'parse_drive_confirm'`
 
-- [ ] **Step 3: Implement the downloaders**
+- [x] **Step 3: Implement the downloaders**
 
 Append to `src/wildfires/fetch.py`:
 
@@ -920,12 +920,12 @@ def download(source: Source, *, force: bool = False) -> str:
 
 Add `requests` to `environment.yml` (conda-forge) and `requirements.txt`.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `pytest tests/test_fetch.py -v && ruff check src tests`
 Expected: PASS
 
-- [ ] **Step 5: Prove the Drive path works end to end on the smallest real file**
+- [x] **Step 5: Prove the Drive path works end to end on the smallest real file**
 
 ```bash
 mv data/raw/effis/modis.ba.poly.prj /tmp/prj.backup
@@ -942,7 +942,7 @@ Expected: prints `ok` (checksum verified against the manifest). Confirm identity
 diff data/raw/effis/modis.ba.poly.prj /tmp/prj.backup && echo "identical" && rm /tmp/prj.backup
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/wildfires/fetch.py tests/test_fetch.py environment.yml requirements.txt
@@ -970,7 +970,7 @@ half-written file that looks valid."
 - Consumes: Task 3–4's `load_manifest`, `verify`, `download`
 - Produces: `make fetch`, `make fetch-check`
 
-- [ ] **Step 1: Write the CLI**
+- [x] **Step 1: Write the CLI**
 
 Create `scripts/fetch_data.py`:
 
@@ -1044,7 +1044,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 2: Replace the old script and wire up the Makefile**
+- [x] **Step 2: Replace the old script and wire up the Makefile**
 
 ```bash
 git rm scripts/download_data.py
@@ -1072,7 +1072,7 @@ fetch-check:
 	python scripts/fetch_data.py --check
 ```
 
-- [ ] **Step 3: Verify against the real files**
+- [x] **Step 3: Verify against the real files**
 
 Run: `make fetch-check`
 Expected: `13/13 sources ready.` and exit code 0, since every file is already on disk.
@@ -1080,7 +1080,7 @@ Expected: `13/13 sources ready.` and exit code 0, since every file is already on
 Run: `make fetch`
 Expected: every line `[OK     ]`, nothing downloaded, exit 0 (idempotence).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add scripts/fetch_data.py Makefile
@@ -1100,11 +1100,11 @@ The ICNF and INE workbooks have no scriptable origin URL, so they are mirrored a
 
 **Files:** none in the repo — this publishes to GitHub.
 
-- [ ] **Step 1: Confirm before publishing**
+- [x] **Step 1: Confirm before publishing**
 
 `rogerjeasy/sustainability-analytics` is **public**, so these assets become publicly downloadable. That is appropriate for published INE and ICNF government statistics, but confirm with the repo owner before running the next step if you are not them.
 
-- [ ] **Step 2: Create the release with all seven workbooks**
+- [x] **Step 2: Create the release with all seven workbooks**
 
 ```bash
 gh release create v0.1-data \
@@ -1130,7 +1130,7 @@ because of its size." \
   data/raw/ine/AER2024_II_01.xlsx
 ```
 
-- [ ] **Step 3: Verify the URLs in the manifest resolve**
+- [x] **Step 3: Verify the URLs in the manifest resolve**
 
 ```bash
 python -c "
@@ -1146,7 +1146,7 @@ done
 
 Expected: `HTTP 200` for all seven. A 404 means the asset name in the manifest does not match the uploaded filename.
 
-- [ ] **Step 4: Prove a clean fetch works**
+- [x] **Step 4: Prove a clean fetch works**
 
 ```bash
 mv data/raw/ine/AER2019_II_01.xlsx /tmp/aer2019.backup
@@ -1156,7 +1156,7 @@ diff data/raw/ine/AER2019_II_01.xlsx /tmp/aer2019.backup && echo "identical" && 
 
 Expected: `[FETCH ]`, then `1/1 sources ready.`, then `identical`.
 
-- [ ] **Step 5: Commit any manifest URL corrections**
+- [x] **Step 5: Commit any manifest URL corrections**
 
 ```bash
 git add config/sources.yml
@@ -1175,7 +1175,7 @@ git commit -m "Point manifest at the v0.1-data release assets" || echo "no chang
 - Consumes: `wildfires.io.load_icnf`
 - Produces: `build_icnf(save: bool = False) -> pd.DataFrame` with columns `dtcc`, `year`, `n_fires`, `burned_ha_total`, `burned_ha_forest`, `burned_ha_shrub`, `burned_ha_agric`, `burned_ha_total_ignited`, `burned_ha_forest_ignited`, `burned_ha_shrub_ignited`, `burned_ha_agric_ignited`, 8 × `n_fires_*ha`, 6 × `cause_*`, `n_fires_gt24h`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_pipeline.py`:
 
@@ -1248,12 +1248,12 @@ class TestICNFStage:
             assert numeric[column].map(lambda v: isinstance(v, str)).sum() == 0
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pytest tests/test_pipeline.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'wildfires.pipeline'`
 
-- [ ] **Step 3: Implement the stage**
+- [x] **Step 3: Implement the stage**
 
 Create `src/wildfires/pipeline.py`:
 
@@ -1340,12 +1340,12 @@ Add to `config/paths.yml` under `interim:`:
   icnf_municipal_year: data/interim/icnf_municipal_year.parquet
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `pytest tests/test_pipeline.py -v`
 Expected: PASS. If `test_spans_the_full_icnf_history` fails on the row count, ICNF has published a newer workbook — update the manifest checksum and the expected count together, in one commit, with the new count stated in the message.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/wildfires/pipeline.py tests/test_pipeline.py config/paths.yml
@@ -1369,7 +1369,7 @@ and are never coalesced."
 - Consumes: Task 1's `load_indicators_all`, `series_breaks`; existing `ine.load_population_all`, `add_aging_measures`, `add_territory_level`
 - Produces: `build_ine(save: bool = False) -> pd.DataFrame` with `dtcc`, `year`, `territory`, the six population counts, five `share_*`, `aging_index`, `old_age_dependency`, and the Task 1 indicator columns
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_pipeline.py`:
 
@@ -1419,12 +1419,12 @@ class TestINEStage:
         assert ine[ine.year == 2021].pop_density.notna().sum() > 250
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pytest tests/test_pipeline.py -k INEStage -v`
 Expected: FAIL with `ImportError: cannot import name 'build_ine'`
 
-- [ ] **Step 3: Implement the stage**
+- [x] **Step 3: Implement the stage**
 
 Append to `src/wildfires/pipeline.py`:
 
@@ -1493,12 +1493,12 @@ processed:
   series_breaks: data/processed/series_breaks.csv
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `pytest tests/test_pipeline.py -v && ruff check src tests`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/wildfires/pipeline.py tests/test_pipeline.py config/paths.yml
@@ -1531,7 +1531,7 @@ other way. `effis_to_municipality` moves out of `merge.py` into `pipeline.py` in
 task precisely to keep that one-directional; leaving it in `merge.py` creates a circular
 import as soon as Task 10 has `merge.py` import the stages. with `dtcc`, `year`, `effis_n_fires`, `effis_burnt_ha_total`, `effis_burnt_ha_median`, `effis_burnt_ha_max`, `effis_duration_days_mean`, `effis_duration_days_max`, 9 × `lc_*_mean`, `percna2k_mean`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_pipeline.py`:
 
@@ -1593,12 +1593,12 @@ class TestEffisStage:
         assert (effis.effis_duration_days_max.dropna() >= 0).all()
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pytest tests/test_pipeline.py -k Effis -v`
 Expected: FAIL with `ImportError: cannot import name 'add_fire_duration'`
 
-- [ ] **Step 3: Implement the stage**
+- [x] **Step 3: Implement the stage**
 
 Append to `src/wildfires/pipeline.py`:
 
@@ -1699,12 +1699,12 @@ Add to `config/paths.yml` under `interim:`:
   effis_municipal_year: data/interim/effis_municipal_year.parquet
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `pytest tests/test_pipeline.py -v`
 Expected: PASS. The `TestEffisStage` class skips if EFFIS is absent; `TestEffisDuration` must run either way.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/wildfires/pipeline.py src/wildfires/merge.py tests/test_pipeline.py config/paths.yml
@@ -1737,7 +1737,7 @@ it with zero would report the longest-burning fires as the shortest."
   - `build_panel(save: bool = False) -> pd.DataFrame` — fire + demography, 2019–2024
   - `build_typology(save: bool = False) -> pd.DataFrame` — NUTS III × APU/AMU/APR
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_merge.py`:
 
@@ -1831,12 +1831,12 @@ class TestTypologyTable:
         assert 2022 not in set(build_typology().year)
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pytest tests/test_merge.py -k "Panels or Municipality or Typology" -v`
 Expected: FAIL with `ImportError: cannot import name 'build_fire_panel'`
 
-- [ ] **Step 3: Implement the assembly**
+- [x] **Step 3: Implement the assembly**
 
 Replace `build_panel` in `src/wildfires/merge.py` and add the new functions:
 
@@ -1923,14 +1923,14 @@ Add to `config/paths.yml` under `processed:`:
   typology_nuts3:  data/processed/ine_typology_nuts3.parquet
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `pytest tests/test_merge.py -v`
 Expected: PASS, in particular `test_panel_is_278_municipalities_by_six_years` at exactly 1668 rows.
 
 If `test_burn_rate_is_a_fraction` fails, the area units are mismatched: `municipality_area_km2 * 100` converts km² to hectares, matching ICNF's hectare areas.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/wildfires/merge.py tests/test_merge.py config/paths.yml
@@ -1962,7 +1962,7 @@ Municipality area is computed from GADM geometry in EPSG:3763."
   - `render_report(results: dict[str, list[Check]]) -> str`
   - `null_rate_table(panel) -> pd.DataFrame`, `render_null_rates(panel) -> str`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_validate.py`:
 
@@ -2021,12 +2021,12 @@ class TestRenderReport:
         assert "PASS" in render_report(results)
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pytest tests/test_validate.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'wildfires.validate'`
 
-- [ ] **Step 3: Implement validation**
+- [x] **Step 3: Implement validation**
 
 Create `src/wildfires/validate.py`:
 
@@ -2172,12 +2172,12 @@ def render_null_rates(panel: pd.DataFrame) -> str:
     return "\n".join(lines)
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `pytest tests/test_validate.py -v && ruff check src tests`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/wildfires/validate.py tests/test_validate.py
@@ -2203,7 +2203,7 @@ flagged, so a genuine regression stands out."
 **Interfaces:**
 - Consumes: every stage from Tasks 7–11
 
-- [ ] **Step 1: Write the CLI**
+- [x] **Step 1: Write the CLI**
 
 Create `scripts/build_data.py`:
 
@@ -2304,7 +2304,7 @@ Add to `config/paths.yml` under `processed:`:
   validation_report: data/processed/validation_report.md
 ```
 
-- [ ] **Step 2: Wire up the Makefile**
+- [x] **Step 2: Wire up the Makefile**
 
 Replace the `data` and `panel` targets:
 
@@ -2315,7 +2315,7 @@ data:
 panel: data
 ```
 
-- [ ] **Step 3: Run the whole pipeline**
+- [x] **Step 3: Run the whole pipeline**
 
 Run: `make data`
 Expected: six `[BUILD ]` lines, then `[VALIDATE]` with every check `PASS`, exit 0, and these files present:
@@ -2326,7 +2326,7 @@ ls -la data/interim/*.parquet data/processed/
 
 Expected: `icnf_municipal_year.parquet`, `ine_municipal_year.parquet`, `effis_municipal_year.parquet`, `panel_municipality_year.parquet`, `fire_panel_municipality_year.parquet`, `ine_typology_nuts3.parquet`, `series_breaks.csv`, `validation_report.md`.
 
-- [ ] **Step 4: Confirm the panel matches the contract**
+- [x] **Step 4: Confirm the panel matches the contract**
 
 ```bash
 python -c "
@@ -2340,7 +2340,7 @@ print(p.dtcc.nunique(), 'municipalities')
 
 Expected: `(1668, N)`, `[2019, 2020, 2021, 2022, 2023, 2024]`, `278 municipalities`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/build_data.py Makefile config/paths.yml
@@ -2358,7 +2358,7 @@ contract check fails."
 **Files:**
 - Modify: `README.md`, `data/README.md`, `docs/data_dictionary.md`
 
-- [ ] **Step 1: Add a "Getting the data" section to README.md**
+- [x] **Step 1: Add a "Getting the data" section to README.md**
 
 Insert after the project intro:
 
@@ -2417,7 +2417,7 @@ Not yet acquired. Temperature, precipitation and wind are absent from the panel;
 no placeholder columns are emitted. See `data/README.md` for the intended source.
 ````
 
-- [ ] **Step 2: Update `data/README.md`**
+- [x] **Step 2: Update `data/README.md`**
 
 - Replace the `make data` reference in the intro with `make fetch` / `make fetch-check`.
 - Under `raw/effis/`, note the Google Drive mirror.
@@ -2438,7 +2438,7 @@ no placeholder columns are emitted. See `data/README.md` for the intended source
   (Censos 2021 re-basing), so density is not strictly comparable across 2020 → 2021.
 ```
 
-- [ ] **Step 3: Write the column contract into `docs/data_dictionary.md`**
+- [x] **Step 3: Write the column contract into `docs/data_dictionary.md`**
 
 Add a section listing every panel column with its unit, source sheet and caveat, covering the table in section 4 of the spec. Include these caveats explicitly:
 
@@ -2462,7 +2462,7 @@ Add a section listing every panel column with its unit, source sheet and caveat,
   `wildfires.clean.apply_size_floor` before reading any cross-year EFFIS trend.
 ```
 
-- [ ] **Step 4: Verify the documented commands actually work**
+- [x] **Step 4: Verify the documented commands actually work**
 
 Run each command quoted in the README exactly as written:
 
@@ -2472,7 +2472,7 @@ make fetch-check && make data && python -c "from wildfires.io import load_panel;
 
 Expected: `13/13 sources ready.`, all checks `PASS`, `(1668, N)`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md data/README.md docs/data_dictionary.md
@@ -2490,10 +2490,40 @@ rather than the municipality."
 
 ## Final verification
 
-- [ ] `make lint` passes
-- [ ] `make test` passes
-- [ ] `make fetch-check` reports 13/13
-- [ ] `make data` exits 0 with every validation check PASS
-- [ ] `data/processed/validation_report.md` shows 1,668 panel rows and 278 municipalities
-- [ ] `git status` is clean apart from gitignored data
-- [ ] A teammate can run `git clone && make setup && make fetch && make data` — walk it once in a scratch clone to confirm nothing depends on files only present on your machine
+- [x] `make lint` passes
+- [x] `make test` passes
+- [x] `make fetch-check` reports 13/13
+- [x] `make data` exits 0 with every validation check PASS
+- [x] `data/processed/validation_report.md` shows 1,668 panel rows and 278 municipalities
+- [x] `git status` is clean apart from gitignored data
+- [x] A teammate can run `git clone && make setup && make fetch && make data` — walk it once in a scratch clone to confirm nothing depends on files only present on your machine
+
+---
+
+## Completion note
+
+All 13 tasks are implemented and committed. Three corrections were made to the
+plan as written, each verified against the built data rather than assumed:
+
+1. **Task 11's `KNOWN_SPARSE` was inverted.** It exempted `burned_ha_total` and
+   siblings in the *fire* panel and exempted nothing in the *analysis* panel.
+   Measured: the fire panel has no all-null column (both ICNF conventions are
+   populated in their own era), while the analysis panel's five `*_ignited`
+   columns are 100% null by construction. As written, `validate_panel` would have
+   failed a correct panel and `make data` would have refused to emit it.
+
+2. **Task 13's caveat text said `_ignited` covers 2001–2025** and that trends
+   crossing 2017 "must use the `_ignited` columns". It covers **2001–2016**. No
+   single ICNF burned-area column spans 2017, so any crossing trend is a splice
+   of two different measures and has to be labelled as one.
+
+3. **A fresh-clone gap the plan did not anticipate.** `build_effis` read an
+   interim GeoPackage that no stage produced and `make fetch` did not download,
+   so `make data` failed on any machine where that file had not been made by
+   hand. Added `build_effis_subset` as the first stage, deriving it from the raw
+   shapefile. Verified by building in a tree containing only `data/raw`: both
+   panels come out byte-identical.
+
+Task 12b (repoint notebook 03 at the built panel) was added during execution: the
+notebook still imported three INE loaders that Task 2 had removed, so it could not
+run at all.
