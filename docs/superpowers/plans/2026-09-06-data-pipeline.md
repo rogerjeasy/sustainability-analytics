@@ -2524,6 +2524,15 @@ plan as written, each verified against the built data rather than assumed:
    shapefile. Verified by building in a tree containing only `data/raw`: both
    panels come out byte-identical.
 
+4. **A fourth stale fact, found while writing chapter 01.** Both the Global
+   Constraints and Task 7 say ICNF municipality coverage "rises from 270 (2001) to
+   278 (2006 onward)". Counted from the built fire panel, only 15 of 25 years reach
+   278: 2008, 2009, 2011, 2012 and 2025 sit at 277. The constraint's real point --
+   never assert a flat 278 x 25 product -- holds, and holds more strongly than
+   written.
+
 Task 12b (repoint notebook 03 at the built panel) was added during execution: the
 notebook still imported three INE loaders that Task 2 had removed, so it could not
-run at all.
+run at all. Notebook 01 was then rewritten from an all-TODO skeleton into the
+provenance and data-quality chapter, which is what surfaced correction 4 and the
+EFFIS-nulls-are-not-zeros finding now recorded in the data dictionary.

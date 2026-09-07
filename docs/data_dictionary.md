@@ -73,9 +73,13 @@ that is what the validation stage checks for.
 ## From EFFIS (burn polygons spatially joined to municipality, 2016–2025)
 
 EFFIS coverage begins in 2016, so all of these are null before it — and null in
-any municipality-year where no fire above the size floor was mapped. Roughly 59%
-of panel rows are null here, which is **an absence of fire, not an absence of
-data**.
+any municipality-year where no fire was large enough to be resolved from satellite
+imagery. Roughly 59% of panel rows are null here.
+
+**Do not read those nulls as zeros.** They mark an absence of *mapped* fire, not an
+absence of fire: of the 981 panel rows with no EFFIS record, 970 still carry ICNF
+ignitions — a median of 13, and one municipality-year with 266. Chapter 01 shows
+this. Treating EFFIS nulls as zero fire-activity would bias any model that uses them.
 
 | Column | Meaning |
 |---|---|
@@ -144,8 +148,8 @@ range, not a modelling choice.
 
 - Fires crossing a municipal border are attributed to a single municipality
   (the one containing the polygon's representative point).
-- Municipality-years with no EFFIS fire appear as null, not zero. Decide per
-  analysis which they are — for counts a zero is usually right, for means it is
-  not.
+- Municipality-years with no *mapped* EFFIS fire appear as null, not zero, and
+  most of them did have fires. Decide per analysis what to do with them, but do
+  not assume they were quiet years.
 - Weather (temperature, precipitation, wind) is **not in the panel**. No
   placeholder columns are emitted. See `data/README.md`.

@@ -136,9 +136,10 @@ def render_report(results: dict[str, list[Check]]) -> str:
     lines += ["- `pop_density` — INE flags a break in series at 2021 "
               "(Censos 2021 re-basing). Values are as published; see "
               "`data/processed/series_breaks.csv`.",
-              "- EFFIS columns are null wherever no fire above the 30 ha floor was "
-              "mapped in that municipality-year. That is an absence of fire, not an "
-              "absence of data.", ""]
+              "- EFFIS columns are null wherever no fire large enough to be mapped "
+              "was resolved in that municipality-year. That is an absence of *mapped* "
+              "fire, not an absence of fire: most such rows still carry ICNF ignitions. "
+              "Do not read these nulls as zeros.", ""]
     return "\n".join(lines)
 
 
