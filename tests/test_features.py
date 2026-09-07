@@ -154,8 +154,13 @@ class TestQuintileData:
         assert grouped.n.sum() == 278
         assert -1.0 <= rho <= 1.0
 
-    def test_burn_share_rises_with_ageing(self):
-        """The claim the slide makes. If this flips, the slide title is wrong."""
+    def test_oldest_quintile_burns_more_than_youngest(self):
+        """The claim the slide title makes. If this flips, the title is wrong.
+
+        Deliberately an endpoint comparison, not a monotonicity check: the medians
+        are *not* monotone across the five quintiles (Q1 exceeds both Q2 and Q3),
+        so asserting a steady rise would fail against correct data.
+        """
         from wildfires.config import PATHS
 
         if not PATHS["processed"]["panel"].exists():
