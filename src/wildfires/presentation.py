@@ -235,11 +235,34 @@ QUINTILE_SUBTITLE = ("Share of municipal land area burned 2019–2024 (EFFIS) by
 
 
 def quintile_data():
-    """Municipal burn share grouped into ageing-index quintiles, plus Spearman."""
-    from wildfires.config import project_root
+    """Municipal burn share grouped into ageing-index quintiles, plus Spearman.
 
-    cum = pd.read_csv(project_root() / "data/interim/municipal_aging_vs_burn.csv",
-                      dtype={"dtcc": str})
+    Built from the analysis panel so the slide figures rebuild from a clean clone.
+    It previously read data/interim/municipal_aging_vs_burn.csv, which is
+    gitignored and written by no pipeline stage, so these figures only regenerated
+    on the machine where that file happened to exist. The numbers are unchanged.
+
+    ``burnt_share_pct`` is EFFIS burnt hectares summed over 2019-2024 against the
+    municipality's area, so it is a *cumulative six-year* share and can exceed
+    100%: EFFIS attributes a whole fire to the single municipality containing its
+    representative point, and land can burn more than once. Three municipalities
+    do exceed it. Read it as burn pressure, not as a fraction of land burnt.
+    """
+    from wildfires.io import load_panel
+
+    panel = load_panel()
+    cum = (
+        panel.groupby("dtcc")
+        .agg(
+            burnt_ha=("effis_burnt_ha_total", "sum"),
+            aging=("aging_index", "mean"),
+            area_km2=("municipality_area_km2", "first"),
+        )
+        .reset_index()
+    )
+    cum["area_ha"] = cum["area_km2"] * 100
+    cum["burnt_share_pct"] = cum["burnt_ha"] / cum["area_ha"] * 100
+
     rho = cum["aging"].corr(cum["burnt_share_pct"], method="spearman")
     q = pd.qcut(cum["aging"], 5, labels=QUINTILE_LABELS)
     g = cum.groupby(q, observed=True).agg(

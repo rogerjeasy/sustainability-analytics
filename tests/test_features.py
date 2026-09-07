@@ -111,3 +111,57 @@ def test_burn_rate_is_gone_from_features():
     import wildfires.features as features
 
     assert not hasattr(features, "burn_rate")
+
+
+class TestQuintileData:
+    """The slide figures must rebuild from a clean clone.
+
+    quintile_data used to read data/interim/municipal_aging_vs_burn.csv, which is
+    gitignored and written by no stage, so scripts/make_presentation_figures.py
+    only ran on the machine where that file had been created by hand.
+    """
+
+    def test_reads_the_panel_not_a_hand_made_interim_file(self):
+        import ast
+        import inspect
+        import textwrap
+
+        from wildfires import presentation
+
+        # Parse and drop the docstring: it names the old file to explain the
+        # change, so a plain substring check over the source would match itself.
+        tree = ast.parse(textwrap.dedent(inspect.getsource(presentation.quintile_data)))
+        function = tree.body[0]
+        if isinstance(function.body[0], ast.Expr) and isinstance(
+            function.body[0].value, ast.Constant
+        ):
+            function.body = function.body[1:]
+        body = ast.unparse(function)
+
+        assert "municipal_aging_vs_burn" not in body
+        assert "load_panel" in body
+
+    def test_five_quintiles_covering_every_municipality(self):
+        from wildfires.config import PATHS
+
+        if not PATHS["processed"]["panel"].exists():
+            pytest.skip("panel not built (run make data)")
+
+        from wildfires.presentation import quintile_data
+
+        grouped, rho = quintile_data()
+        assert len(grouped) == 5
+        assert grouped.n.sum() == 278
+        assert -1.0 <= rho <= 1.0
+
+    def test_burn_share_rises_with_ageing(self):
+        """The claim the slide makes. If this flips, the slide title is wrong."""
+        from wildfires.config import PATHS
+
+        if not PATHS["processed"]["panel"].exists():
+            pytest.skip("panel not built (run make data)")
+
+        from wildfires.presentation import quintile_data
+
+        grouped, _ = quintile_data()
+        assert grouped.median_share.iloc[-1] > grouped.median_share.iloc[0]
