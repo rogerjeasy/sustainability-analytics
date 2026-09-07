@@ -6,9 +6,11 @@ ICNF workbooks are small enough to exercise directly.
 
 from __future__ import annotations
 
+import pandas as pd
 import pytest
 
 from wildfires.config import PATHS
+from wildfires.io import load_icnf
 
 icnf_only = pytest.mark.skipif(
     not PATHS["raw"]["icnf_statistics"].exists(),
@@ -68,9 +70,28 @@ class TestICNFStage:
         assert (per_year.loc[2001:2016] > 0).all()
 
     def test_the_two_conventions_are_kept_separate(self, icnf):
-        """They answer different questions and must never be coalesced."""
-        both = icnf[icnf.year >= 2017]
-        assert not both.burned_ha_total.equals(both.burned_ha_total_ignited)
+        """They answer different questions and must never be coalesced or swapped.
+
+        Comparing the two output columns over year >= 2017 is vacuous: from 2017
+        on, burned_ha_total_ignited is entirely NaN (that is the fact discovered
+        while building this stage -- see test_ignition_area_covers_the_pre_2017_years),
+        so `not both.a.equals(both.b)` would hold even if build_icnf coalesced the
+        two raw columns into one. Instead, pick one real row from each era, straight
+        off the raw workbook, and check the renamed output actually carries the
+        value from the matching raw column -- and NaN from the other -- which fails
+        under a coalesce, a swap, or a mis-mapped rename alike.
+        """
+        raw = load_icnf("concelho")
+
+        pre = raw[(raw.year < 2017) & raw.AreaArdTotal_IncendioInicioConc.notna()].iloc[0]
+        row = icnf[(icnf.dtcc == pre.dtcc) & (icnf.year == pre.year)].iloc[0]
+        assert row.burned_ha_total_ignited == pre.AreaArdTotal_IncendioInicioConc
+        assert pd.isna(row.burned_ha_total)
+
+        post = raw[(raw.year >= 2017) & raw.AreaArdTotal_NoConcelho.notna()].iloc[0]
+        row = icnf[(icnf.dtcc == post.dtcc) & (icnf.year == post.year)].iloc[0]
+        assert row.burned_ha_total == post.AreaArdTotal_NoConcelho
+        assert pd.isna(row.burned_ha_total_ignited)
 
     def test_missing_marker_never_survives_as_a_string(self, icnf):
         numeric = icnf.drop(columns=["dtcc"])
