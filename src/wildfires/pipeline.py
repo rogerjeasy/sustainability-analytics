@@ -91,7 +91,11 @@ def build_ine(save: bool = False) -> pd.DataFrame:
     population = add_aging_measures(add_territory_level(load_population_all()))
     population = population[population.level == "municipality"].copy()
 
-    for band in ("0_14", "15_24", "25_64", "65_plus", "75_plus"):
+    # add_aging_measures already computed share_0_14 and share_65_plus; only the
+    # remaining three bands are genuinely missing. Recomputing the first two here
+    # too would create a second definition that has to be kept in sync with the
+    # one in wildfires.ine, for no benefit.
+    for band in ("15_24", "25_64", "75_plus"):
         population[f"share_{band}"] = 100 * population[f"pop_{band}"] / population["pop_total"]
 
     indicators = load_indicators_all()

@@ -128,17 +128,42 @@ class TestINEStage:
         """75+ is a subset of 65+, not a fifth disjoint band."""
         assert (ine.share_75_plus <= ine.share_65_plus + 1e-9).all()
 
+    def test_dtcc_is_four_characters(self, ine):
+        assert ine.dtcc.str.len().eq(4).all()
+
     def test_rate_columns_are_populated(self, ine):
+        # The real invariant, measured directly against the source workbooks:
+        # all ten Task 1 indicator columns are fully populated for every one
+        # of the 1,848 municipality-year rows. A weaker "> 1000" threshold
+        # would silently absorb a partial merge failure (e.g. a code-column
+        # shift in a future AER edition) instead of reporting it.
         for column in ("pop_density", "birth_rate", "death_rate",
                        "growth_effective", "growth_natural", "growth_migratory"):
-            assert ine[column].notna().sum() > 1000, f"{column} mostly empty"
+            assert ine[column].notna().sum() == len(ine), f"{column} has missing values"
+
+    def test_no_row_lost_its_indicator_block(self, ine):
+        """Pins the merge completeness the reviewer verified by hand.
+
+        `validate="one_to_one"` on the merge only rejects duplicate keys; it
+        does not catch a partial key mismatch. If `indicators` stopped
+        matching some rows, those rows would keep their population columns
+        but carry NaN across every indicator column. Assert that never
+        happens: zero rows with a fully-empty indicator block.
+        """
+        indicator_columns = [
+            "pop_density", "growth_effective", "growth_natural", "growth_migratory",
+            "birth_rate", "death_rate", "aging_index_ine", "renewal_index",
+            "old_age_dependency_ine", "longevity_index",
+        ]
+        all_null = ine[indicator_columns].isna().all(axis=1)
+        assert all_null.sum() == 0
 
     def test_derived_aging_index_matches_ine_published_value(self, ine):
         """Independent cross-check: our arithmetic against INE's own column."""
         both = ine[ine.aging_index.notna() & ine.aging_index_ine.notna()]
-        assert len(both) > 1000
+        assert len(both) == len(ine)
         assert (both.aging_index - both.aging_index_ine).abs().median() < 1.0
 
     def test_nothing_was_imputed(self, ine):
         """2021 density carries a break in series; values stay exactly as published."""
-        assert ine[ine.year == 2021].pop_density.notna().sum() > 250
+        assert ine[ine.year == 2021].pop_density.notna().sum() == 308
