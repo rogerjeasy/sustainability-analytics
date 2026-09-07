@@ -17,7 +17,7 @@ import pandas as pd
 
 from wildfires.config import PATHS, project_root
 from wildfires.merge import build_fire_panel, build_panel, build_typology
-from wildfires.pipeline import build_effis, build_icnf, build_ine
+from wildfires.pipeline import build_effis, build_effis_subset, build_icnf, build_ine
 from wildfires.validate import (
     render_null_rates,
     render_report,
@@ -26,6 +26,9 @@ from wildfires.validate import (
 )
 
 STAGES = {
+    # effis_subset runs first: it is what makes the pipeline reproducible from
+    # data/raw alone, and every later EFFIS step reads the file it writes.
+    "effis_subset": build_effis_subset,
     "icnf": build_icnf,
     "ine": build_ine,
     "effis": build_effis,

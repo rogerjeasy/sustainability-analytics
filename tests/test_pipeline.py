@@ -224,3 +224,48 @@ class TestEffisStage:
 
     def test_duration_is_never_negative(self, effis):
         assert (effis.effis_duration_days_max.dropna() >= 0).all()
+
+
+effis_raw_only = pytest.mark.skipif(
+    not PATHS["raw"]["effis_polygons"].exists(),
+    reason="EFFIS shapefile not present (run make fetch; ~565 MB)",
+)
+
+
+@effis_raw_only
+class TestEffisSubsetStage:
+    """The subset must be reproducible from data/raw alone.
+
+    Regression test for a fresh-clone failure: build_effis read an interim
+    GeoPackage that no stage produced and `make fetch` did not download, so
+    `make data` died on any machine where that file had not been created by hand.
+    """
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def subset(cls):
+        from wildfires.pipeline import build_effis_subset
+
+        return build_effis_subset()
+
+    def test_keeps_only_the_four_study_countries(self, subset):
+        assert set(subset.COUNTRY.dropna()) == {"ES", "FR", "IT", "PT"}
+
+    def test_carries_geometry_in_epsg_4326(self, subset):
+        assert subset.geometry.notna().any()
+        assert subset.crs.to_string() == "EPSG:4326"
+
+    def test_derives_fire_year_from_firedate(self, subset):
+        years = subset.fire_year.dropna()
+        assert years.min() >= 2000
+        assert years.max() <= 2026
+
+    def test_numeric_fields_are_numeric_not_text(self, subset):
+        for column in ("AREA_HA", "PERCNA2K"):
+            assert pd.api.types.is_numeric_dtype(subset[column]), column
+
+    def test_is_a_strict_subset_of_the_raw_shapefile(self, subset):
+        import geopandas as gpd
+
+        raw = gpd.read_file(PATHS["raw"]["effis_polygons"])
+        assert 0 < len(subset) < len(raw)

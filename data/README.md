@@ -26,6 +26,10 @@ checksum lives in `config/sources.yml` — that is the only place they appear.
 - **Mirror:** `make fetch` pulls these from a public Google Drive folder, so no
   EFFIS account is needed to reproduce the pipeline. The account request above is
   only needed to refresh the snapshot.
+- **Subsetting:** the shapefile covers all of Europe and North Africa (105,149
+  polygons, 40 countries). `make data`'s first stage filters it to ES/FR/IT/PT and
+  writes `data/interim/effis/effis_subset_ES-FR-IT-PT.{gpkg,csv}`. Do not create
+  those files by hand — they are build output, reproducible from `raw/` alone.
 - **Caveats:** see `docs/EFFIS_data_dictionary.md`. The three that bite:
   1. filter to `CLASS == "FireSeason"` for any historical analysis;
   2. the `.prj` needs `set_crs(..., allow_override=True)`;

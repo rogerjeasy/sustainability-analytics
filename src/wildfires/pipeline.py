@@ -9,7 +9,7 @@ from __future__ import annotations
 import geopandas as gpd
 import pandas as pd
 
-from wildfires.config import CRS_METRIC, PATHS
+from wildfires.config import CRS_GEOGRAPHIC, CRS_METRIC, PATHS, require
 from wildfires.ine import (
     add_aging_measures,
     add_territory_level,
@@ -130,6 +130,50 @@ def build_ine(save: bool = False) -> pd.DataFrame:
         breaks.parent.mkdir(parents=True, exist_ok=True)
         series_breaks().to_csv(breaks, index=False)
     return out
+
+
+# The four Mediterranean countries this project compares. EFFIS ships all of
+# Europe and North Africa; carrying 105k polygons through the spatial join to
+# reach Portugal's would be wasteful, so the subset is taken once, up front.
+EFFIS_STUDY_COUNTRIES = ["ES", "FR", "IT", "PT"]
+
+
+def build_effis_subset(save: bool = False) -> gpd.GeoDataFrame:
+    """EFFIS burn perimeters for ES/FR/IT/PT, from the raw shapefile.
+
+    This stage exists so that ``make data`` is reproducible from ``data/raw``
+    alone. The downstream stages read the interim GeoPackage this writes; before
+    it existed that file had to be produced by hand, so a fresh clone could
+    download every raw input successfully and still fail to build.
+
+    Nothing is filtered here beyond country. The ``CLASS == "FireSeason"`` rule
+    and the PERCNA2K clip stay in :func:`wildfires.io.load_effis_polygons`, where
+    they are applied on read, so the interim file remains a faithful subset of the
+    source rather than a partly-cleaned one.
+    """
+    gdf = gpd.read_file(require(PATHS["raw"]["effis_polygons"]))
+    gdf = gdf.set_crs(CRS_GEOGRAPHIC, allow_override=True)
+    gdf = gdf[gdf["COUNTRY"].isin(EFFIS_STUDY_COUNTRIES)].copy()
+
+    for column in ["AREA_HA", "PERCNA2K", *EFFIS_LANDCOVER_COLS]:
+        if column in gdf.columns:
+            gdf[column] = pd.to_numeric(gdf[column], errors="coerce")
+
+    gdf["fire_year"] = pd.to_datetime(
+        gdf["FIREDATE"], format="ISO8601", errors="coerce"
+    ).dt.year
+    gdf = gdf.reset_index(drop=True)
+
+    if save:
+        geo_target = PATHS["interim"]["effis_subset_geo"]
+        geo_target.parent.mkdir(parents=True, exist_ok=True)
+        gdf.to_file(geo_target, driver="GPKG")
+
+        # The tabular twin, for the loaders that need no geometry.
+        csv_target = PATHS["interim"]["effis_subset"]
+        csv_target.parent.mkdir(parents=True, exist_ok=True)
+        gdf.drop(columns="geometry").to_csv(csv_target, index=False)
+    return gdf
 
 
 def effis_to_municipality(

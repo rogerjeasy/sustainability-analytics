@@ -135,7 +135,9 @@ make lint         # ruff
 make report       # execute notebooks → _build/html/index.html
 ```
 
-Run `python scripts/build_data.py --stage ine` to rebuild a single stage.
+Run `python scripts/build_data.py --stage ine` to rebuild a single stage. The
+stages run in order: `effis_subset`, `icnf`, `ine`, `effis`, `fire_panel`,
+`panel`, `typology`.
 
 ## Data
 
