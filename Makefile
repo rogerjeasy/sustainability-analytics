@@ -22,7 +22,7 @@ fetch-check:
 	python scripts/fetch_data.py --check
 
 data:
-	python -c "from wildfires.merge import build_panel; p = build_panel(save=True); print(p.shape)"
+	python scripts/build_data.py
 
 panel: data
 

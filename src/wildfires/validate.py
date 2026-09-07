@@ -133,7 +133,7 @@ def render_report(results: dict[str, list[Check]]) -> str:
               "Empty in the analysis panel by construction, not by failure:", ""]
     for column, reason in KNOWN_SPARSE.items():
         lines.append(f"- `{column}` — {reason}")
-    lines += ["", "- `pop_density` — INE flags a break in series at 2021 "
+    lines += ["- `pop_density` — INE flags a break in series at 2021 "
               "(Censos 2021 re-basing). Values are as published; see "
               "`data/processed/series_breaks.csv`.",
               "- EFFIS columns are null wherever no fire above the 30 ha floor was "
