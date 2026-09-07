@@ -166,9 +166,26 @@ def load_municipalities(mainland_only: bool = False) -> gpd.GeoDataFrame:
 # ------------------------------------------------------------- Panel ------
 
 def load_panel() -> pd.DataFrame:
-    """The analysis-ready (municipality x year) panel.
+    """The analysis-ready (municipality x year) panel: fire + demography, 2019-2024.
 
-    This is what chapters 02-04 should read. Built by notebook 01 via
-    ``wildfires.merge.build_panel``; run ``make data`` if it is missing.
+    This is what chapters 02-04 should read. Built by ``make data`` via
+    ``wildfires.merge.build_panel``; run it if this file is missing.
+
+    Its 2019-2024 span is INE AER's, not a choice. For fire history before 2019,
+    read :func:`load_fire_panel` instead.
     """
     return pd.read_parquet(require(PATHS["processed"]["panel"]))
+
+
+def load_fire_panel() -> pd.DataFrame:
+    """The fire-only (municipality x year) panel: ICNF + EFFIS, 2001-2025.
+
+    Carries no demography, so it is not capped at INE AER's 2019-2024 window and
+    the 18 earlier years of fire history stay usable by the time-series chapter.
+
+    Mind the 2017 seam: ``burned_ha_*`` covers 2017-2025 and ``burned_ha_*_ignited``
+    covers 2001-2016. They measure different things (area burned *within* a
+    municipality versus area of fires that *ignited* in it), so a continuous series
+    across the seam is a splice, not a measurement -- label it as one.
+    """
+    return pd.read_parquet(require(PATHS["processed"]["fire_panel"]))

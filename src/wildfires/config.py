@@ -64,7 +64,12 @@ STUDY_YEARS: tuple[int, int] = tuple(CONVENTIONS["study_years"])
 def require(path: Path) -> Path:
     """Fail loudly and helpfully when a data file has not been downloaded."""
     if not path.exists():
-        rel = path.relative_to(project_root())
+        # relative_to raises when the path lies outside the repository, which turns
+        # a helpful message into an unrelated ValueError. Fall back to the absolute.
+        try:
+            rel = path.relative_to(project_root())
+        except ValueError:
+            rel = path
         raise FileNotFoundError(
             f"Missing data file: {rel}\n"
             f"See data/README.md for where this comes from, or run: make data"

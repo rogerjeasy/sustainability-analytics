@@ -18,5 +18,10 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.per-file-ignores]
+# Notebooks must insert src/ into sys.path before importing the project package,
+# so their imports genuinely cannot all sit at the top of the cell.
+"notebooks/*.ipynb" = ["E402"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
