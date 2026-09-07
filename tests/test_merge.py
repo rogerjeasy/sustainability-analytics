@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 
 from wildfires.clean import normalise_dtcc, normalise_name
+from wildfires.config import PATHS
 from wildfires.features import add_lags, cause_shares
 
 
@@ -66,3 +67,90 @@ class TestCauseShares:
             "NInc_NaoInvestigados": [0.0],
         })
         assert cause_shares(df).isna().all(axis=None)
+
+
+full_data = pytest.mark.skipif(
+    not PATHS["raw"]["icnf_statistics"].exists()
+    or not (PATHS["raw"]["ine_aer_dir"] / "AER2024_II_01.xlsx").exists(),
+    reason="raw workbooks not present (run make fetch)",
+)
+
+
+@full_data
+class TestPanels:
+    @pytest.fixture(scope="class")
+    def panel(self):
+        from wildfires.merge import build_panel
+
+        return build_panel()
+
+    @pytest.fixture(scope="class")
+    def fire_panel(self):
+        from wildfires.merge import build_fire_panel
+
+        return build_fire_panel()
+
+    def test_panel_is_278_municipalities_by_six_years(self, panel):
+        assert len(panel) == 1668
+        assert panel.dtcc.nunique() == 278
+        assert sorted(panel.year.unique()) == [2019, 2020, 2021, 2022, 2023, 2024]
+
+    def test_panel_key_is_unique(self, panel):
+        assert not panel.duplicated(["dtcc", "year"]).any()
+
+    def test_join_lost_no_municipality(self, panel):
+        """INE, ICNF and GADM overlap on exactly 278 mainland municipalities."""
+        assert set(panel.groupby("year").size()) == {278}
+
+    def test_demography_is_attached_everywhere(self, panel):
+        for column in ("pop_total", "share_65_plus", "birth_rate", "pop_density"):
+            assert panel[column].notna().sum() > 1500, f"{column} mostly unattached"
+
+    def test_fire_columns_are_attached(self, panel):
+        assert panel.n_fires.notna().all()
+
+    def test_burn_rate_is_a_fraction(self, panel):
+        rate = panel.burn_rate.dropna()
+        assert (rate >= 0).all()
+        assert (rate <= 1.5).all(), "burn_rate far above 1 means an area-unit mismatch"
+
+    def test_fire_panel_spans_the_full_history(self, fire_panel):
+        assert fire_panel.year.min() == 2001
+        assert fire_panel.year.max() == 2025
+
+    def test_fire_panel_carries_no_demography(self, fire_panel):
+        """It must not inherit the 2019-2024 INE ceiling."""
+        assert "pop_total" not in fire_panel.columns
+        assert "birth_rate" not in fire_panel.columns
+
+    def test_no_merge_multiplied_rows(self, fire_panel):
+        assert not fire_panel.duplicated(["dtcc", "year"]).any()
+
+
+@full_data
+class TestMunicipalityAreas:
+    def test_areas_are_plausible_for_portugal(self):
+        from wildfires.merge import municipality_areas
+
+        areas = municipality_areas()
+        # Portugal's smallest concelho is São João da Madeira at ~8 km2; the
+        # largest is Odemira at ~1720 km2.
+        assert areas.municipality_area_km2.min() > 5
+        assert areas.municipality_area_km2.max() < 2000
+        assert len(areas) >= 278
+
+
+@full_data
+class TestTypologyTable:
+    def test_is_nuts3_level_and_never_joined_to_municipalities(self):
+        """II_01_04/_05 carry no municipality code; they stay a separate table."""
+        from wildfires.merge import build_typology
+
+        typology = build_typology()
+        assert "dtcc" not in typology.columns
+        assert set(typology.typology) == {"APU", "AMU", "APR"}
+
+    def test_2022_gap_is_preserved(self):
+        from wildfires.merge import build_typology
+
+        assert 2022 not in set(build_typology().year)

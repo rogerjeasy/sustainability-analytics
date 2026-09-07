@@ -22,6 +22,8 @@ processed:
   # The analysis panel every chapter reads: one row per (dtcc, year).
   panel:            data/processed/panel_municipality_year.parquet
   series_breaks:    data/processed/series_breaks.csv
+  fire_panel:      data/processed/fire_panel_municipality_year.parquet
+  typology_nuts3:  data/processed/ine_typology_nuts3.parquet
 
 external:
   # Small, committed lookup tables.
