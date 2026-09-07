@@ -167,3 +167,60 @@ class TestINEStage:
     def test_nothing_was_imputed(self, ine):
         """2021 density carries a break in series; values stay exactly as published."""
         assert ine[ine.year == 2021].pop_density.notna().sum() == 308
+
+
+effis_only = pytest.mark.skipif(
+    not PATHS["interim"]["effis_subset_geo"].exists(),
+    reason="EFFIS geodata not present (run make fetch; ~565 MB)",
+)
+
+
+class TestEffisDuration:
+    """Duration arithmetic, exercised on a fixture so it needs no 565 MB download."""
+
+    def test_duration_is_days_between_first_and_final_date(self):
+        import pandas as pd
+
+        from wildfires.pipeline import add_fire_duration
+
+        df = pd.DataFrame({
+            "FIREDATE": pd.to_datetime(["2019-07-01T00:00:00", "2019-08-10T12:00:00"]),
+            "FINALDATE": pd.to_datetime(["2019-07-04T00:00:00", "2019-08-11T00:00:00"]),
+        })
+        out = add_fire_duration(df)
+        assert out.duration_days.tolist() == [3.0, 0.5]
+
+    def test_missing_final_date_yields_na_not_zero(self):
+        """An unclosed fire is unknown duration, not a zero-day fire."""
+        import pandas as pd
+
+        from wildfires.pipeline import add_fire_duration
+
+        df = pd.DataFrame({
+            "FIREDATE": pd.to_datetime(["2019-07-01"]),
+            "FINALDATE": [pd.NaT],
+        })
+        assert add_fire_duration(df).duration_days.isna().all()
+
+
+@effis_only
+class TestEffisStage:
+    @pytest.fixture(scope="class")
+    def effis(self):
+        from wildfires.pipeline import build_effis
+
+        return build_effis()
+
+    def test_one_row_per_municipality_year(self, effis):
+        assert not effis.duplicated(["dtcc", "year"]).any()
+
+    def test_dtcc_is_four_characters(self, effis):
+        assert effis.dtcc.str.len().eq(4).all()
+
+    def test_land_cover_means_are_percentages(self, effis):
+        for column in [c for c in effis.columns if c.startswith("lc_")]:
+            values = effis[column].dropna()
+            assert values.between(0, 100).all(), f"{column} outside 0-100"
+
+    def test_duration_is_never_negative(self, effis):
+        assert (effis.effis_duration_days_max.dropna() >= 0).all()

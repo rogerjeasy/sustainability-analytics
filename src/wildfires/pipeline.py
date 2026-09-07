@@ -6,9 +6,10 @@ part-way through does not discard the work already done.
 
 from __future__ import annotations
 
+import geopandas as gpd
 import pandas as pd
 
-from wildfires.config import PATHS
+from wildfires.config import CRS_METRIC, PATHS
 from wildfires.ine import (
     add_aging_measures,
     add_territory_level,
@@ -16,7 +17,7 @@ from wildfires.ine import (
     load_population_all,
     series_breaks,
 )
-from wildfires.io import load_icnf
+from wildfires.io import EFFIS_LANDCOVER_COLS, load_effis_polygons, load_icnf, load_municipalities
 
 # ICNF publishes two burned-area conventions that answer different questions:
 #
@@ -128,4 +129,83 @@ def build_ine(save: bool = False) -> pd.DataFrame:
         breaks = PATHS["processed"]["series_breaks"]
         breaks.parent.mkdir(parents=True, exist_ok=True)
         series_breaks().to_csv(breaks, index=False)
+    return out
+
+
+def effis_to_municipality(
+    fires: gpd.GeoDataFrame | None = None,
+    municipalities: gpd.GeoDataFrame | None = None,
+) -> gpd.GeoDataFrame:
+    """Assign each EFFIS burn polygon to a municipality by spatial join.
+
+    EFFIS's COMMUNE field is the freguesia (civil parish), one level finer than the
+    concelho, and is free text with no code, so it cannot be joined to ICNF or INE
+    directly. The polygon representative point is used; a fire crossing a municipal
+    border is attributed to one municipality, a known and documented simplification.
+    """
+    fires = load_effis_polygons() if fires is None else fires
+    municipalities = load_municipalities() if municipalities is None else municipalities
+
+    # Representative points must be computed in a projected CRS to be valid.
+    pts = fires.to_crs(CRS_METRIC).copy()
+    pts["geometry"] = pts.geometry.representative_point()
+
+    joined = gpd.sjoin(
+        pts,
+        municipalities.to_crs(CRS_METRIC)[["dtcc", "municipality", "district", "geometry"]],
+        how="left",
+        predicate="within",
+    ).drop(columns="index_right")
+    return joined
+
+
+def add_fire_duration(df: pd.DataFrame) -> pd.DataFrame:
+    """Days between FIREDATE and FINALDATE.
+
+    A fire with no FINALDATE has unknown duration, which stays NaN. Filling it
+    with zero would report the longest-burning fires as the shortest.
+    """
+    out = df.copy()
+    out["duration_days"] = (
+        pd.to_datetime(out["FINALDATE"], errors="coerce")
+        - pd.to_datetime(out["FIREDATE"], errors="coerce")
+    ).dt.total_seconds() / 86400
+    return out
+
+
+def build_effis(save: bool = False) -> pd.DataFrame:
+    """EFFIS burn perimeters aggregated to one row per (dtcc, year)."""
+    fires = add_fire_duration(effis_to_municipality())
+    fires = fires[fires["dtcc"].notna()].copy()
+    if "fire_year" not in fires.columns:
+        fires["fire_year"] = pd.to_datetime(
+            fires["FIREDATE"], format="ISO8601", errors="coerce"
+        ).dt.year
+
+    grouped = fires.groupby(["dtcc", "fire_year"])
+    size = grouped["AREA_HA"].agg(
+        effis_n_fires="count",
+        effis_burnt_ha_total="sum",
+        effis_burnt_ha_median="median",
+        effis_burnt_ha_max="max",
+    )
+    duration = grouped["duration_days"].agg(
+        effis_duration_days_mean="mean",
+        effis_duration_days_max="max",
+    )
+    composition = grouped[[*EFFIS_LANDCOVER_COLS, "PERCNA2K"]].mean()
+    composition.columns = [f"lc_{c.lower()}_mean" for c in EFFIS_LANDCOVER_COLS] + \
+                          ["percna2k_mean"]
+
+    out = (
+        size.join(duration).join(composition)
+        .reset_index().rename(columns={"fire_year": "year"})
+    )
+    out["year"] = out["year"].astype("Int64")
+    out = out.sort_values(["dtcc", "year"]).reset_index(drop=True)
+
+    if save:
+        target = PATHS["interim"]["effis_municipal_year"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        out.to_parquet(target, index=False)
     return out

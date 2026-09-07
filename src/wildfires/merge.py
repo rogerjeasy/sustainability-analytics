@@ -13,69 +13,10 @@ Join key: ``dtcc``, the 4-digit Portuguese municipality code.
 
 from __future__ import annotations
 
-import geopandas as gpd
 import pandas as pd
 
-from wildfires.config import CRS_METRIC, PATHS
-from wildfires.io import (
-    EFFIS_LANDCOVER_COLS,
-    ICNF_CAUSE_COLS,
-    load_effis_polygons,
-    load_icnf,
-    load_municipalities,
-)
-
-
-def effis_to_municipality(
-    fires: gpd.GeoDataFrame | None = None,
-    municipalities: gpd.GeoDataFrame | None = None,
-) -> gpd.GeoDataFrame:
-    """Assign each EFFIS burn polygon to a municipality by spatial join.
-
-    EFFIS's ``COMMUNE`` field is the *freguesia* (civil parish), one level finer
-    than the concelho, and is free text with no code — so it cannot be joined to
-    ICNF or INE directly. The polygon centroid is used as the representative
-    point; fires crossing a municipal border are attributed to a single
-    municipality, which is a known and documented simplification.
-    """
-    fires = load_effis_polygons() if fires is None else fires
-    municipalities = load_municipalities() if municipalities is None else municipalities
-
-    # Centroids must be computed in a projected CRS to be geometrically valid.
-    pts = fires.to_crs(CRS_METRIC).copy()
-    pts["geometry"] = pts.geometry.representative_point()
-
-    joined = gpd.sjoin(
-        pts,
-        municipalities.to_crs(CRS_METRIC)[["dtcc", "municipality", "district", "geometry"]],
-        how="left",
-        predicate="within",
-    ).drop(columns="index_right")
-    return joined
-
-
-def aggregate_fires(fires_with_dtcc: pd.DataFrame) -> pd.DataFrame:
-    """Collapse individual fire records to one row per (dtcc, year)."""
-    df = fires_with_dtcc.copy()
-    if "fire_year" not in df.columns:
-        df["fire_year"] = pd.to_datetime(df["FIREDATE"], format="ISO8601").dt.year
-
-    keys = ["dtcc", "fire_year"]
-    grouped = df.groupby(keys)
-
-    size = grouped["AREA_HA"].agg(
-        n_fires="count",
-        burnt_ha_total="sum",
-        burnt_ha_median="median",
-        burnt_ha_max="max",
-    )
-
-    # Mean land-cover composition of the area that burned in that municipality-year.
-    composition = grouped[[*EFFIS_LANDCOVER_COLS, "PERCNA2K"]].mean()
-    composition.columns = [f"{c.lower()}_mean" for c in composition.columns]
-
-    out = size.join(composition).reset_index()
-    return out.rename(columns={"fire_year": "year"})
+from wildfires.config import PATHS
+from wildfires.io import ICNF_CAUSE_COLS, load_icnf
 
 
 def build_panel(save: bool = False) -> pd.DataFrame:
@@ -84,7 +25,9 @@ def build_panel(save: bool = False) -> pd.DataFrame:
     Returns one row per (dtcc, year). INE demography is left to notebook 01 to
     attach once the team fixes which AER indicators go in — see the TODO below.
     """
-    fires = aggregate_fires(effis_to_municipality())
+    # aggregate_fires/effis_to_municipality moved to pipeline.py in Task 9; this
+    # function is rewritten in Task 10 to call the pipeline stages instead.
+    fires = aggregate_fires(effis_to_municipality())  # noqa: F821
 
     icnf = load_icnf("concelho")
     icnf_cols = ["dtcc", "year", "Num_IncendiosRurais", "Ninc_Sup24h", *ICNF_CAUSE_COLS]
