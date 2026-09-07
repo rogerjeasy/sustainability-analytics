@@ -107,20 +107,31 @@ def _stream_to(response: requests.Response, destination: Path, expected: str) ->
     """Stream to a sibling temp file, hashing as we go, and only then rename.
 
     Renaming after the digest matches means an interrupted or corrupted fetch can
-    never leave a half-written file sitting where a valid one belongs.
+    never leave a half-written file sitting where a valid one belongs. A dropped
+    connection or full disk mid-loop is just as much a failure as a bad checksum,
+    so any exception during streaming also unlinks the temp file before
+    propagating — otherwise a retried, still-failing source would leave one
+    orphan temp file per attempt.
     """
     destination.parent.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256()
     with NamedTemporaryFile(dir=destination.parent, delete=False) as tmp:
         temp_path = Path(tmp.name)
-        for chunk in response.iter_content(chunk_size=_CHUNK):
-            tmp.write(chunk)
-            digest.update(chunk)
+        try:
+            for chunk in response.iter_content(chunk_size=_CHUNK):
+                tmp.write(chunk)
+                digest.update(chunk)
+        except Exception:
+            temp_path.unlink(missing_ok=True)
+            raise
 
     if digest.hexdigest() != expected:
         actual = digest.hexdigest()
         temp_path.unlink()
         raise ChecksumMismatch(f"expected {expected}, got {actual}")
+    # NamedTemporaryFile defaults to 0600; the destination should read like any
+    # other file in the tree, not like a private scratch file.
+    temp_path.chmod(0o644)
     temp_path.replace(destination)
 
 
@@ -130,15 +141,30 @@ def _download_http(source: Source) -> None:
         if source.unzip_member:
             with NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
                 archive = Path(tmp.name)
-                for chunk in response.iter_content(chunk_size=_CHUNK):
-                    tmp.write(chunk)
+                try:
+                    for chunk in response.iter_content(chunk_size=_CHUNK):
+                        tmp.write(chunk)
+                except Exception:
+                    archive.unlink(missing_ok=True)
+                    raise
+
             source.target.parent.mkdir(parents=True, exist_ok=True)
             extracted = source.target.with_suffix(source.target.suffix + ".part")
-            with zipfile.ZipFile(archive) as zf, \
-                 zf.open(source.unzip_member) as member, \
-                 extracted.open("wb") as out:
-                shutil.copyfileobj(member, out)
-            archive.unlink()
+            try:
+                # A truncated or wrong archive (zipfile.BadZipFile) or a manifest
+                # that names a member the archive doesn't contain (KeyError) must
+                # not leave a half-written .part file behind, same as any other
+                # failure mode here.
+                with zipfile.ZipFile(archive) as zf, \
+                     zf.open(source.unzip_member) as member, \
+                     extracted.open("wb") as out:
+                    shutil.copyfileobj(member, out)
+            except Exception:
+                extracted.unlink(missing_ok=True)
+                raise
+            finally:
+                archive.unlink(missing_ok=True)
+
             if sha256_of(extracted) != source.sha256:
                 extracted.unlink()
                 raise ChecksumMismatch(f"{source.name}: extracted member does not match")
@@ -190,5 +216,10 @@ def download(source: Source, *, force: bool = False) -> str:
         return "failed"
     except requests.RequestException as exc:
         print(f"  DOWNLOAD FAILED for {source.name}: {exc}")
+        return "failed"
+    except (zipfile.BadZipFile, KeyError) as exc:
+        print(f"  BAD ARCHIVE for {source.name}: {exc}\n"
+              "    The download was not a valid zip, or did not contain the "
+              "expected member. The partial file was discarded.")
         return "failed"
     return "ok"

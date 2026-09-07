@@ -102,3 +102,123 @@ class TestDriveConfirm:
         from wildfires.fetch import parse_drive_confirm
 
         assert parse_drive_confirm("<html><body>not a form</body></html>") == {}
+
+
+class _FakeResponse:
+    """Just enough of requests.Response to drive _stream_to / _download_http.
+
+    `chunks` may contain an Exception instance instead of bytes, which
+    iter_content raises mid-stream — simulating a dropped connection without
+    touching the network.
+    """
+
+    def __init__(self, chunks, headers=None):
+        self._chunks = chunks
+        self.headers = headers or {}
+
+    def raise_for_status(self):
+        pass
+
+    def iter_content(self, chunk_size):
+        for chunk in self._chunks:
+            if isinstance(chunk, Exception):
+                raise chunk
+            yield chunk
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return False
+
+
+class TestStreamToCleansUpOnFailure:
+    """Covers the temp-file leak fixed after code review: any exception during
+    streaming — not only a checksum mismatch — must remove the temp file and
+    leave the destination directory exactly as it was.
+    """
+
+    def test_mid_stream_exception_leaves_no_orphan_and_untouched_destination(self, tmp_path):
+        from wildfires.fetch import _stream_to
+
+        destination = tmp_path / "out.bin"
+        response = _FakeResponse([b"partial-bytes", ConnectionError("dropped")])
+
+        with pytest.raises(ConnectionError):
+            _stream_to(response, destination, "0" * 64)
+
+        assert not destination.exists()
+        assert list(tmp_path.iterdir()) == []
+
+    def test_successful_stream_lands_with_readable_permissions(self, tmp_path):
+        """NamedTemporaryFile defaults to 0600; the renamed file must not."""
+        from wildfires.fetch import _stream_to
+
+        payload = b"hello"
+        digest = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        destination = tmp_path / "out.bin"
+        response = _FakeResponse([payload])
+
+        _stream_to(response, destination, digest)
+
+        assert destination.read_bytes() == payload
+        assert destination.stat().st_mode & 0o777 == 0o644
+
+
+class TestDownloadHandlesCorruptZip:
+    """Covers the second review finding: a truncated/corrupt zip must surface
+    as download() returning 'failed', not as an unhandled zipfile.BadZipFile
+    crashing the whole fetch run.
+    """
+
+    def _gadm_like_source(self, tmp_path):
+        from wildfires.fetch import Source
+
+        return Source(
+            name="gadm_level2",
+            kind="http",
+            target=tmp_path / "gadm41_PRT_2.json",
+            sha256="0" * 64,
+            bytes=10,
+            url="http://example.invalid/gadm.zip",
+            file_id=None,
+            instructions=None,
+            unzip_member="gadm41_PRT_2.json",
+        )
+
+    def test_corrupt_zip_returns_failed_and_leaves_no_debris(self, tmp_path, monkeypatch):
+        from wildfires.fetch import download
+
+        source = self._gadm_like_source(tmp_path)
+        fake_response = _FakeResponse([b"this is not a zip file"])
+        monkeypatch.setattr(
+            "wildfires.fetch.requests.get", lambda *a, **k: fake_response
+        )
+
+        result = download(source)
+
+        assert result == "failed"
+        assert not source.target.exists()
+        assert list(tmp_path.iterdir()) == []
+
+    def test_missing_member_returns_failed(self, tmp_path, monkeypatch):
+        """The archive is valid but doesn't contain the manifest's named member."""
+        import io
+        import zipfile
+
+        from wildfires.fetch import download
+
+        source = self._gadm_like_source(tmp_path)
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zf:
+            zf.writestr("some_other_file.json", "{}")
+        fake_response = _FakeResponse([buffer.getvalue()])
+        monkeypatch.setattr(
+            "wildfires.fetch.requests.get", lambda *a, **k: fake_response
+        )
+
+        result = download(source)
+
+        assert result == "failed"
+        assert not source.target.exists()
+        assert list(tmp_path.iterdir()) == []
