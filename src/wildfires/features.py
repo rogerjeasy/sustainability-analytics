@@ -30,37 +30,65 @@ def add_lags(
     return out
 
 
-def burn_rate(df: pd.DataFrame, area_col: str = "burnt_ha_total",
-              size_col: str = "municipality_area_ha") -> pd.Series:
-    """Share of a municipality's land area that burned in a given year.
-
-    The parameter your notes flagged as missing. Requires municipality area,
-    which comes from the GADM geometry in a metric CRS — see
-    ``wildfires.merge.load_municipalities``.
-    """
-    return df[area_col] / df[size_col]
-
-
 def log1p_safe(s: pd.Series) -> pd.Series:
     """log(1+x) that tolerates the zeros that dominate burnt-area columns."""
     return np.log1p(s.clip(lower=0))
 
 
+CAUSE_COLS = [
+    "cause_natural", "cause_negligent", "cause_intentional",
+    "cause_rekindle", "cause_unknown", "cause_uninvestigated",
+]
+
+BURNED_AREA_COL = "burned_ha_total"
+IGNITED_AREA_COL = "burned_ha_total_ignited"
+
+
 def cause_shares(df: pd.DataFrame, cause_cols: list[str] | None = None) -> pd.DataFrame:
-    """Convert the ICNF NInc_* cause counts into within-row shares.
+    """Convert the ICNF cause counts into within-row shares.
 
     Counts scale with how many fires a municipality had; shares are what the
     'do demographics influence fire causes?' question actually asks about.
-    """
-    from wildfires.io import ICNF_CAUSE_COLS
 
-    cols = ICNF_CAUSE_COLS if cause_cols is None else cause_cols
-    present = [c for c in cols if c in df.columns]
-    total = df[present].sum(axis=1)
-    shares = df[present].div(total.replace(0, np.nan), axis=0)
+    Raises rather than returning an empty frame when the columns are absent. An
+    earlier version filtered to whichever of its expected columns were present,
+    so passing a panel that had been renamed returned ``(n, 0)`` silently — which
+    propagates downstream as "no causes recorded" instead of "wrong frame".
+    """
+    cols = CAUSE_COLS if cause_cols is None else cause_cols
+    missing = [c for c in cols if c not in df.columns]
+    if missing:
+        raise ValueError(
+            f"cause columns not found: {', '.join(missing)}. "
+            f"Expected the built panel's names ({', '.join(cols)})."
+        )
+    total = df[cols].sum(axis=1)
+    shares = df[cols].div(total.replace(0, np.nan), axis=0)
     return shares.add_suffix("_share")
 
 
 def fire_occurred(df: pd.DataFrame, threshold: float = 0.0) -> pd.Series:
-    """Binary target for the ML chapter: did this municipality-year see fire?"""
-    return (df["burnt_ha_total"].fillna(0) > threshold).astype(int)
+    """Binary target for the ML chapter: did this municipality-year see fire?
+
+    Uses ``burned_ha_total``, which ICNF populates from 2017 onward only. Rows
+    from the earlier era carry their area in ``burned_ha_total_ignited`` instead,
+    and filling those nulls with zero would label sixteen years of fire history
+    as fire-free — a silently wrong target rather than a missing value. Such rows
+    are refused, so the caller decides explicitly what to do with them.
+    """
+    if BURNED_AREA_COL not in df.columns:
+        raise ValueError(
+            f"{BURNED_AREA_COL} not found. Expected the built panel's names; "
+            "see docs/data_dictionary.md."
+        )
+    pre_2017 = df[BURNED_AREA_COL].isna()
+    if IGNITED_AREA_COL in df.columns:
+        pre_2017 &= df[IGNITED_AREA_COL].notna()
+    if pre_2017.any():
+        raise ValueError(
+            f"{int(pre_2017.sum())} rows carry burned area under the pre-2017 "
+            f"convention ({IGNITED_AREA_COL}) and none under {BURNED_AREA_COL}. "
+            "Scoring them zero would mark burnt years as fire-free; filter to "
+            "2017 onward, or score the two eras separately."
+        )
+    return (df[BURNED_AREA_COL].fillna(0) > threshold).astype(int)

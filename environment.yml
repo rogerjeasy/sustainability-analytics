@@ -15,6 +15,7 @@ dependencies:
   - pyarrow            # parquet engine for the processed panel
   - pyyaml
   - openpyxl           # ICNF / INE .xlsx readers
+  - requests           # HTTP / Google Drive downloaders
 
   # geospatial
   - geopandas>=1.0

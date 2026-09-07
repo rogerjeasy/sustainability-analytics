@@ -4,7 +4,6 @@
 raw:
   effis_polygons:   data/raw/effis/modis.ba.poly.shp
   effis_severity:   data/raw/effis/severity_2023.tiff
-  municipality_dimensions: data/raw/dimensions/superficies-por-concelho-2022.csv
   icnf_statistics:  data/raw/icnf/EstatisticasIncendiosSGIF-2001-2025.xlsx
   ine_aer_dir:      data/raw/ine
   gadm_municipal:   data/raw/boundaries/gadm41_PRT_2.json
@@ -15,10 +14,17 @@ interim:
   effis_subset:     data/interim/effis/effis_subset_ES-FR-IT-PT.csv
   effis_subset_geo: data/interim/effis/effis_subset_ES-FR-IT-PT.gpkg
   effis_pt_municipal: data/interim/effis_pt_municipal.parquet
+  effis_municipal_year: data/interim/effis_municipal_year.parquet
+  icnf_municipal_year: data/interim/icnf_municipal_year.parquet
+  ine_municipal_year: data/interim/ine_municipal_year.parquet
 
 processed:
   # The analysis panel every chapter reads: one row per (dtcc, year).
   panel:            data/processed/panel_municipality_year.parquet
+  series_breaks:    data/processed/series_breaks.csv
+  fire_panel:      data/processed/fire_panel_municipality_year.parquet
+  typology_nuts3:  data/processed/ine_typology_nuts3.parquet
+  validation_report: data/processed/validation_report.md
 
 external:
   # Small, committed lookup tables.
