@@ -15,10 +15,12 @@ interim:
   effis_subset_geo: data/interim/effis/effis_subset_ES-FR-IT-PT.gpkg
   effis_pt_municipal: data/interim/effis_pt_municipal.parquet
   icnf_municipal_year: data/interim/icnf_municipal_year.parquet
+  ine_municipal_year: data/interim/ine_municipal_year.parquet
 
 processed:
   # The analysis panel every chapter reads: one row per (dtcc, year).
   panel:            data/processed/panel_municipality_year.parquet
+  series_breaks:    data/processed/series_breaks.csv
 
 external:
   # Small, committed lookup tables.

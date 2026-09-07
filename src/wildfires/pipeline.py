@@ -9,6 +9,13 @@ from __future__ import annotations
 import pandas as pd
 
 from wildfires.config import PATHS
+from wildfires.ine import (
+    add_aging_measures,
+    add_territory_level,
+    load_indicators_all,
+    load_population_all,
+    series_breaks,
+)
 from wildfires.io import load_icnf
 
 # ICNF publishes two burned-area conventions that answer different questions:
@@ -71,4 +78,50 @@ def build_icnf(save: bool = False) -> pd.DataFrame:
         target = PATHS["interim"]["icnf_municipal_year"]
         target.parent.mkdir(parents=True, exist_ok=True)
         out.to_parquet(target, index=False)
+    return out
+
+
+def build_ine(save: bool = False) -> pd.DataFrame:
+    """INE demography as one row per (dtcc, year) for the six AER editions.
+
+    Age-group counts come from the II_01_03/_02 tables, the rates and density from
+    II_01_01/_01c. Both are keyed on the 7-digit hierarchical code, whose last four
+    characters are the dtcc.
+    """
+    population = add_aging_measures(add_territory_level(load_population_all()))
+    population = population[population.level == "municipality"].copy()
+
+    for band in ("0_14", "15_24", "25_64", "65_plus", "75_plus"):
+        population[f"share_{band}"] = 100 * population[f"pop_{band}"] / population["pop_total"]
+
+    indicators = load_indicators_all()
+    indicators = indicators[
+        indicators.code.str.len().eq(7) & indicators.code.str[3:].ne("0000")
+    ].copy()
+
+    merged = population.merge(
+        indicators.drop(columns=["territory"]),
+        on=["code", "year"], how="left", validate="one_to_one",
+    )
+    merged["dtcc"] = merged["code"].str[-4:]
+
+    columns = [
+        "dtcc", "year", "territory",
+        "pop_total", "pop_0_14", "pop_15_24", "pop_25_64", "pop_65_plus", "pop_75_plus",
+        "share_0_14", "share_15_24", "share_25_64", "share_65_plus", "share_75_plus",
+        "aging_index", "old_age_dependency",
+        "pop_density", "growth_effective", "growth_natural", "growth_migratory",
+        "birth_rate", "death_rate",
+        "aging_index_ine", "renewal_index", "old_age_dependency_ine", "longevity_index",
+    ]
+    out = merged[columns].sort_values(["dtcc", "year"]).reset_index(drop=True)
+
+    if save:
+        target = PATHS["interim"]["ine_municipal_year"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        out.to_parquet(target, index=False)
+
+        breaks = PATHS["processed"]["series_breaks"]
+        breaks.parent.mkdir(parents=True, exist_ok=True)
+        series_breaks().to_csv(breaks, index=False)
     return out

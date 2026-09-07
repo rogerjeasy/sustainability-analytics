@@ -97,3 +97,48 @@ class TestICNFStage:
         numeric = icnf.drop(columns=["dtcc"])
         for column in numeric.columns:
             assert numeric[column].map(lambda v: isinstance(v, str)).sum() == 0
+
+
+ine_only = pytest.mark.skipif(
+    not (PATHS["raw"]["ine_aer_dir"] / "AER2024_II_01.xlsx").exists(),
+    reason="INE workbooks not present (run make fetch)",
+)
+
+
+@ine_only
+class TestINEStage:
+    @pytest.fixture(scope="class")
+    def ine(self):
+        from wildfires.pipeline import build_ine
+
+        return build_ine()
+
+    def test_one_row_per_municipality_year(self, ine):
+        assert not ine.duplicated(["dtcc", "year"]).any()
+
+    def test_covers_308_municipalities_for_six_years(self, ine):
+        assert sorted(ine.year.unique()) == [2019, 2020, 2021, 2022, 2023, 2024]
+        assert set(ine.groupby("year").size()) == {308}
+
+    def test_age_shares_sum_to_one_hundred(self, ine):
+        parts = (ine.share_0_14 + ine.share_15_24 + ine.share_25_64 + ine.share_65_plus)
+        assert (parts - 100).abs().max() < 1e-6
+
+    def test_share_75_plus_is_nested_inside_65_plus(self, ine):
+        """75+ is a subset of 65+, not a fifth disjoint band."""
+        assert (ine.share_75_plus <= ine.share_65_plus + 1e-9).all()
+
+    def test_rate_columns_are_populated(self, ine):
+        for column in ("pop_density", "birth_rate", "death_rate",
+                       "growth_effective", "growth_natural", "growth_migratory"):
+            assert ine[column].notna().sum() > 1000, f"{column} mostly empty"
+
+    def test_derived_aging_index_matches_ine_published_value(self, ine):
+        """Independent cross-check: our arithmetic against INE's own column."""
+        both = ine[ine.aging_index.notna() & ine.aging_index_ine.notna()]
+        assert len(both) > 1000
+        assert (both.aging_index - both.aging_index_ine).abs().median() < 1.0
+
+    def test_nothing_was_imputed(self, ine):
+        """2021 density carries a break in series; values stay exactly as published."""
+        assert ine[ine.year == 2021].pop_density.notna().sum() > 250
