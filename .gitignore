@@ -37,3 +37,9 @@ env/
 .vscode/
 .DS_Store
 .claude/
+
+# ---- Slides ---------------------------------------------------------------
+reports/slides/*
+!reports/slides/.gitkeep
+!reports/slides/README.md
+!reports/slides/*.pdf
