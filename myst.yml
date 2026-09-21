@@ -25,7 +25,7 @@ project:
     - file: notebooks/03_statistical_analysis.ipynb
     - file: notebooks/04_ml_fire_risk.ipynb
     - file: notebooks/05_discussion.ipynb
-    - file: reports/references.md
+    - file: reports/ai-declaration.md
 site:
   template: book-theme
   options:
