@@ -29,7 +29,7 @@ dependencies:
   # stats & ML
   - statsmodels        # Anibal: OLS/panel models, Granger causality
   - scikit-learn
-  - xgboost
+  - xgboost=3.2.0
   - scipy
 
   # viz
