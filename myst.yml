@@ -4,6 +4,8 @@ version: 1
 project:
   title: Wildfires and Demographic Change in Portugal
   short_title: PT Wildfires
+  static_files:
+    - Agent-based Simulation/wildfire.html
   authors:
     - name: Adrian
     - name: Anibal
