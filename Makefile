@@ -33,10 +33,13 @@ lint:
 	ruff check src tests
 
 report:
-	jupyter-book build --html
+	# --execute regenerates cell outputs at build time. Notebooks are committed
+	# output-free (see .pre-commit-config.yaml), so without this the chapters
+	# render as prose with no figures or tables.
+	jupyter-book build --html --execute
 
 report-serve:
-	jupyter-book start
+	jupyter-book start --execute
 
 clean-report:
 	rm -rf _build
